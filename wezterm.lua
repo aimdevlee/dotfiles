@@ -43,7 +43,7 @@ local function split_nav(resize_or_move, key)
 end
 
 --  appearance
-config.color_scheme = "Tokyo Night"
+config.color_scheme = "Catppuccin Mocha"
 config.window_decorations = "RESIZE"
 config.window_background_opacity = 0.9
 config.macos_window_background_blur = 10
