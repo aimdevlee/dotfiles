@@ -165,9 +165,10 @@ export BAT_THEME=tokyonight_night
 # eza
 alias ls='eza --color=always --long --git --no-filesize --icons=always --no-time --no-user --no-permissions'
 
-# zoxide
-alias cd="z"
-
 # direnv
 eval "$(direnv hook zsh)"
 
+
+### MANAGED BY RANCHER DESKTOP START (DO NOT EDIT)
+export PATH="/Users/dongbin-lee/.rd/bin:$PATH"
+### MANAGED BY RANCHER DESKTOP END (DO NOT EDIT)
