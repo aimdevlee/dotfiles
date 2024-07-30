@@ -48,9 +48,7 @@ config.window_decorations = "RESIZE"
 config.window_background_opacity = 0.9
 config.macos_window_background_blur = 10
 config.enable_tab_bar = true
-
--- default cwd
-config.default_cwd = "~/works"
+config.hide_tab_bar_if_only_one_tab = true
 
 -- font
 config.font = wezterm.font({ family = "FiraCode Nerd Font" })
@@ -59,6 +57,12 @@ config.font_size = 13
 config.leader = { key = "a", mods = "CTRL", timeout_milliseconds = 1000 }
 
 config.keys = {
+	-- turn off default CMD-m action
+	{
+		mods = "CMD",
+		key = "m",
+		action = wezterm.action.DisableDefaultAssignment,
+	},
 	-- splitting
 	{
 		mods = "LEADER",
