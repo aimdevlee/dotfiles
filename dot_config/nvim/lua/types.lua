@@ -1,0 +1,6 @@
+---@alias RootFn fun(buf: number): (string|string[])
+---@alias RootSpec string|string[]|RootFn
+---
+---@class Root
+---@field paths string[]
+---@field spec RootSpec

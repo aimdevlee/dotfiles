@@ -1,0 +1,33 @@
+local opt = vim.opt
+
+opt.breakindent = true -- Lines are broken at a "shiftwidth" from the start of the line.
+opt.clipboard = "unnamedplus" -- Use the clipboard register '+' for all yank, delete, change and put operations.
+opt.confirm = true -- Show confirmation prompts for certain commands that can have a destructive impact.
+opt.cursorline = true -- Highlight the screen line of the cursor.
+opt.expandtab = true -- Convert tabs to spaces.
+opt.hlsearch = true -- Highlight all matches when a search is performed.
+opt.ignorecase = true -- Ignore case when using search patterns.
+opt.inccommand = "split" -- Show interactive substitute results in a split window.
+opt.laststatus = 3
+opt.list = true -- Show certain characters in the list format.
+opt.listchars = { tab = "» ", trail = "·", nbsp = "␣" } -- Define particular characters for 'list' option.
+opt.mouse = "a" -- Enable mouse support in all modes.
+opt.number = true -- Show current line number.
+opt.relativenumber = true -- Enable relative line numbers.
+opt.scrolloff = 8 -- Keep at least 8 lines above and below the cursor when scrolling.
+opt.sessionoptions = { "buffers", "curdir", "tabpages", "winsize", "help", "globals", "skiprtp", "folds" }
+opt.shiftwidth = 2 -- Set number of spaces per indentation level.
+opt.showmode = false -- Do not show current mode.
+opt.sidescrolloff = 8 -- Keep at least 8 columns to the left and the right when scrolling horizontally.
+opt.signcolumn = "yes" -- Always show the sign column.
+opt.smartcase = true -- Override the 'ignorecase' option if the search pattern contains upper case characters.
+opt.smoothscroll = true
+opt.splitbelow = true -- Open horizontal splits below the current window.
+opt.splitright = true -- Open vertical splits to the right of the current window.
+opt.tabstop = 2 -- Set number of spaces per tab.
+opt.termguicolors = true -- Enable true color support.
+opt.timeoutlen = 300 -- Time (in ms) that Neovim waits for a mapped sequence to complete.
+opt.undofile = true -- Enable persistent undo, which writes undo history to an undo file.
+opt.undolevels = 10000 -- The maximum number of changes that can be undone.
+opt.updatetime = 250 -- Set the time (in ms) that Neovim waits for a key to be pressed in mappings.
+opt.wrap = true -- line wrap
