@@ -88,4 +88,4 @@ export STARSHIP_CONFIG=~/.config/starship/starship.toml
 eval "$(starship init zsh)"
 
 # git bare repository
-alias dotfiles='/usr/bin/git --git-dir=/Users/dongbin-lee/.dotfiles/ --work-tree=/Users/dongbin-lee'
+alias dotfiles='/usr/bin/git --git-dir=$HOME/.dotfiles/ --work-tree=$HOME'
