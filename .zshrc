@@ -89,3 +89,6 @@ eval "$(starship init zsh)"
 
 # git bare repository
 alias dotfiles='/usr/bin/git --git-dir=$HOME/.dotfiles.git --work-tree=$HOME'
+
+# navi sheet path(same as config path)
+export NAVI_PATH=$HOME/.config/navi

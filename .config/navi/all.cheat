@@ -1,0 +1,26 @@
+% Git
+# switch branch
+git switch <branch>
+$ branch: git branch --format="%(refname:short)"
+
+# remove merged branches
+git branch --merged|egrep -v '\*|develop|main|master' | xargs git branch -d
+
+% Rails
+# migrate database
+bundle ex rails db:migrate RAILS_ENV=development && bundle ex rails db:migrate RAILS_ENV=test
+
+# launch rails server
+bundle ex rails server --port 3001 --binding 0.0.0.0
+
+% Rescue
+# launch Resque process with rake
+env QUEUE="*" TERM_CHILD=1 bin/rake environment resque:work
+
+% kill
+# kill process by port (use sudo if needed)
+lsof -P -i:<port_number> | fzf-tmux -p --reverse --exit-0 | awk '{print $2}' | xargs kill -9
+
+# kill process by name
+ps aux | grep <process_name> | fzf-tmux -p --reverse --exit-0 | awk '{print $2}' | xargs kill -9
+
