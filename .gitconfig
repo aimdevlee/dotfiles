@@ -1,0 +1,23 @@
+[core]
+  excludesFile = ~/.gitignore
+  pager = "delta"
+  quotepath = false
+  editor = nvim
+[pager]
+  log = less -FE
+[interactive]
+  diffFilter = delta --color-only --features=interactive
+[delta]
+  side-by-side = false
+  navigate = true
+  features = decorations
+  line-numbers = true
+  keep-plus-minus-markers = true
+[merge]
+  conflictstyle = diff3
+[diff]
+  colorMoved = default
+[include]
+  # include external gitconfig file (requires git 1.7.10+)
+  # typically, user.name and user.email is configured.
+  path = ~/.gitconfig.secret
