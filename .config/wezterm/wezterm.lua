@@ -35,6 +35,7 @@ config = {
   max_fps = 120,
   prefer_egl = true,
   tab_max_width = 20,
+  term = "wezterm",
   underline_position = -5,
   use_fancy_tab_bar = false,
   window_decorations = "RESIZE",
