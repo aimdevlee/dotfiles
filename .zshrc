@@ -78,10 +78,10 @@ alias ls='eza --color=always --icons=always'
 eval "$(direnv hook zsh)"
 
 # Check if nvim is in the path and if it is, set it as the default editor
-# if command -v nvim > /dev/null 2>&1; then
-#   alias vi='nvim'
-#   alias vim='nvim'
-# fi
+if command -v nvim > /dev/null 2>&1; then
+  alias vi='nvim'
+  alias vim='nvim'
+fi
 
 # starship
 export STARSHIP_CONFIG=~/.config/starship/starship.toml
