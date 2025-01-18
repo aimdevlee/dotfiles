@@ -72,7 +72,7 @@ _fzf_comprun() {
 export BAT_THEME=tokyonight_night
 
 # eza
-alias ls='eza --color=always --long --git --no-filesize --icons=always --no-time --no-user --no-permissions'
+alias ls='eza --color=always --icons=always'
 
 # direnv
 eval "$(direnv hook zsh)"
