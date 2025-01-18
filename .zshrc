@@ -93,8 +93,9 @@ alias dotfiles='/usr/bin/git --git-dir=$HOME/.dotfiles.git --work-tree=$HOME'
 # navi sheet path(same as config path)
 export NAVI_PATH=$HOME/.config/navi
 
-# yazi
 export EDITOR=nvim
+
+# yazi
 function y() {
 	local tmp="$(mktemp -t "yazi-cwd.XXXXXX")" cwd
 	yazi "$@" --cwd-file="$tmp"
