@@ -1,3 +1,6 @@
+# Get editor completions based on the config schema
+"$schema" = 'https://starship.rs/config-schema.json'
+
 format = """
 [](#285AC8)\
 $os\
@@ -8,17 +11,12 @@ $directory\
 $git_branch\
 $git_status\
 [](fg:#FCA17D bg:#06969A)\
-$time\
+$git_commit\
 [ ](fg:#06969A)\
 """
 
-# Get editor completions based on the config schema
-"$schema" = 'https://starship.rs/config-schema.json'
-
-# Disable the blank line at the start of the prompt
-# add_newline = false
-
 command_timeout = 3000
+add_newline = true
 
 # You can also replace your username with a neat symbol like   or disable this
 # and use the os module below
@@ -63,8 +61,7 @@ format = '[ $symbol $branch ]($style)'
 style = "bg:#FCA17D"
 format = '[$all_status$ahead_behind ]($style)'
 
-[time]
-disabled = false
-time_format = "%R"             # Hour:Minute Format
-style = "bg:#06969A"
-format = '[  $time ]($style)'
+[git_commit]
+commit_hash_length = 4
+tag_symbol = '🔖 '
+format = "[$hash $tag]($style) "
