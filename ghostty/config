@@ -1,2 +1,28 @@
+auto-update = check
+auto-update-channel = stable
+background-opacity = 0.9
+background-blur = 20
+confirm-close-surface = false
+copy-on-select = true
+cursor-style-blink = false
+custom-shader = bloom025.glsl
+font-family = IosevkaTerm Nerd Font Light
 keybind = super+shift+\=new_split:right
 keybind = super+shift+-=new_split:down
+keybind = super+shift+h=goto_split:left
+keybind = super+shift+j=goto_split:down
+keybind = super+shift+k=goto_split:up
+keybind = super+shift+l=goto_split:right
+keybind = super+i=inspector:toggle
+keybind = super+r=reload_config
+keybind = cmd+s=toggle_quick_terminal
+macos-titlebar-style = hidden
+macos-option-as-alt = left
+mouse-hide-while-typing = true
+quick-terminal-animation-duration = 0.08
+shell-integration-features = no-cursor,no-sudo,title
+theme = catppuccin-mocha
+window-padding-x = 4,2
+window-padding-y = 6,0
+
+
