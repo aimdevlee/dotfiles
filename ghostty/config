@@ -6,7 +6,8 @@ confirm-close-surface = false
 copy-on-select = true
 cursor-style-blink = false
 custom-shader = bloom025.glsl
-font-family = IosevkaTerm Nerd Font Light
+font-family = IosevkaTerm Nerd Font
+font-style = Light
 keybind = super+shift+\=new_split:right
 keybind = super+shift+-=new_split:down
 keybind = super+shift+h=goto_split:left
