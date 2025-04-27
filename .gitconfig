@@ -1,0 +1,40 @@
+[include]
+	# include external gitconfig file (requires git 1.7.10+)
+	# typically, user.name and user.email is configured.
+	path = ~/.gitconfig.local
+
+[merge]
+	tool = nvimdiff
+
+[mergetool]
+	keepBackup = false
+
+[difftool]
+	prompt = false
+
+[core]
+	excludesfile = ~/.gitignore
+	editor = vim
+
+[color]
+	diff = auto
+	status = auto
+	branch = auto
+	ui = true
+
+[alias]
+	co = checkout
+	ai = "!git add $(git status -s | fzf -m | awk '{print $2}')"
+  pr = "!f() { git fetch origin pull/$1/head:pr-$1; }; f"
+
+[pull]
+	rebase = true
+
+[push]
+	default = simple
+
+[init]
+	defaultBranch = main
+
+[help]
+	autocorrect = 1
