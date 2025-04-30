@@ -16,6 +16,8 @@ keybind = super+shift+l=goto_split:right
 keybind = super+i=inspector:toggle
 keybind = super+r=reload_config
 keybind = cmd+s=toggle_quick_terminal
+keybind = ctrl+n=csi:B
+keybind = ctrl+p=csi:A
 macos-titlebar-style = hidden
 macos-option-as-alt = left
 mouse-hide-while-typing = true
