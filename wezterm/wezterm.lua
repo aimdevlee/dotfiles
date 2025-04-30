@@ -7,7 +7,7 @@ config = {
   color_scheme = "catppuccin-mocha",
   window_padding = { bottom = 0, right = 0, left = 5 },
   colors = { compose_cursor = "red" },
-  font = wezterm.font("IosevkaTerm Nerd Font", { weight = "Light" }),
+  font = wezterm.font("JetBrainsMono Nerd Font Mono"),
   font_size = 14,
   hide_tab_bar_if_only_one_tab = true,
   keys = {
