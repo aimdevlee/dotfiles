@@ -5,7 +5,7 @@ background-blur = 20
 confirm-close-surface = false
 copy-on-select = true
 cursor-style-blink = false
-font-family = JetbrainsMono Nerd Font
+font-family = PlemolJP Console NF
 font-size = 14
 keybind = super+shift+\=new_split:right
 keybind = super+shift+-=new_split:down
@@ -16,8 +16,6 @@ keybind = super+shift+l=goto_split:right
 keybind = super+i=inspector:toggle
 keybind = super+r=reload_config
 keybind = cmd+s=toggle_quick_terminal
-keybind = ctrl+n=csi:B
-keybind = ctrl+p=csi:A
 macos-titlebar-style = hidden
 macos-option-as-alt = left
 mouse-hide-while-typing = true
