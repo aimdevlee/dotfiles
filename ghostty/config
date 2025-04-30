@@ -5,8 +5,7 @@ background-blur = 20
 confirm-close-surface = false
 copy-on-select = true
 cursor-style-blink = false
-font-family = IosevkaTerm Nerd Font
-font-style = Light
+font-family = JetbrainsMono Nerd Font
 font-size = 14
 keybind = super+shift+\=new_split:right
 keybind = super+shift+-=new_split:down
