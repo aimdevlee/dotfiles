@@ -95,40 +95,6 @@ vim.api.nvim_create_autocmd("LspAttach", {
         callback = vim.lsp.buf.clear_references,
       })
     end
-
-    -- setup diagnostics
-    vim.diagnostic.config({
-      virtual_text = {
-        spacing = 4,
-        source = "if_many",
-        prefix = "●",
-        severity = vim.diagnostic.severity.ERROR,
-        current_line = true,
-      },
-      virtual_lines = false,
-      underline = true,
-      update_in_insert = false,
-      severity_sort = true,
-      signs = {
-        text = {
-          [vim.diagnostic.severity.ERROR] = "",
-          [vim.diagnostic.severity.WARN] = "",
-          [vim.diagnostic.severity.INFO] = "",
-          [vim.diagnostic.severity.HINT] = "",
-        },
-        numhl = {
-          [vim.diagnostic.severity.ERROR] = "DiagnosticSignError",
-          [vim.diagnostic.severity.WARN] = "DiagnosticSignWarn",
-          [vim.diagnostic.severity.INFO] = "DiagnosticSignInfo",
-          [vim.diagnostic.severity.HINT] = "DiagnosticSignHint",
-          [vim.diagnostic.severity.N] = "DiagnosticSignInfo",
-        },
-      },
-      float = {
-        border = "rounded",
-        source = "if_many",
-      },
-    })
   end,
 })
 
