@@ -49,9 +49,31 @@ vim.lsp.config("ts_ls", {
   } },
 })
 
+vim.lsp.config("eslint", {
+  root_dir = function(bufnr, on_dir)
+    local root_file_patterns = {
+      ".eslintrc",
+      ".eslintrc.js",
+      ".eslintrc.cjs",
+      ".eslintrc.yaml",
+      ".eslintrc.yml",
+      ".eslintrc.json",
+      "eslint.config.js",
+      "eslint.config.mjs",
+      "eslint.config.cjs",
+      "eslint.config.ts",
+      "eslint.config.mts",
+      "eslint.config.cts",
+    }
+
+    on_dir(vim.fs.dirname(vim.fs.find(root_file_patterns, { path = vim.loop.cwd() })[1]))
+  end,
+})
+
 vim.lsp.enable({
   "lua_ls",
   "sorbet",
   "ruby_lsp",
   "ts_ls",
+  "eslint",
 })
