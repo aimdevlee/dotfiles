@@ -38,8 +38,6 @@ return {
         },
         current_line_blame_formatter = "  <author>,  <author_time:%R> - <summary>",
         on_attach = function(bufnr)
-          local gitsigns = require("gitsigns")
-
           local function map(mode, l, r, opts)
             opts = opts or {}
             opts.buffer = bufnr
@@ -51,6 +49,7 @@ return {
           map("n", "ghp", "<Cmd>Gitsigns prev_hunk<CR>", { desc = "Prev Hunk" })
           map("n", "ghb", "<Cmd>Gitsigns blame_line<CR>", { desc = "Blame Line" })
           map("n", "ght", "<Cmd>Gitsigns toggle_current_line_blame<CR>", { desc = "Toggle Current Line Blame" })
+          map("n", "ghr", "<Cmd>Gitsigns reset_hunk<CR>", { desc = "Reset Hunk" })
         end,
       })
     end,
