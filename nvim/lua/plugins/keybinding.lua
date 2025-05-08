@@ -33,7 +33,22 @@ return {
           { "<leader><tab>", group = "Tabs" },
           { "<leader>g", group = "Git" },
           { "<leader>gh", group = "Hunks" },
-          { "<leader>h", group = "Harpoon" },
+          { "<leader>h", group = "Harpoon", expand = function ()
+            -- create keymap dynamically to navigate harpoon files
+            local harpoon = require('harpoon')
+            local list = harpoon:list()
+            local keys = {}
+            for _, item in ipairs(list.items) do
+              local idx = #keys + 1
+              keys[idx] =  {
+                ''..idx..'', function ()
+                  harpoon:list():select(idx)
+                end, desc = item.value:match(".+/([^/]+)")
+              }
+            end
+
+            return keys
+          end},
           { "<leader>t", group = "Toggle" },
           { "<leader>n", group = "Notification" },
           { "<leader>q", group = "Quit/Session" },

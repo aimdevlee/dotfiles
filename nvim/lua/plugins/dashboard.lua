@@ -20,6 +20,7 @@ return {
             -- stylua: ignore start
             { icon = "", desc = "New File", key = "n", key_format = "[%s]", action = 'enew' },
             { icon = "", desc = "Browse", key = "b", key_format = "[%s]", action = 'Oil' },
+            { icon = "", desc = "Harpoon List", key = "h", key_format = "[%s]", action = function() local harpoon = require('harpoon'); harpoon.ui:toggle_quick_menu(harpoon:list()) end },
             { icon = "", desc = "Recents", key = "r", key_format = "[%s]", action = function() require("fzf-lua").oldfiles() end },
             { icon = "", desc = "Find Files", key = "f", key_format = "[%s]", action = function() require("fzf-lua").files() end },
             { icon = "", desc = "Live Grep in " .. vim.uv.cwd(), key = "g", key_format = "[%s]", action = function() require("fzf-lua").live_grep() end },
