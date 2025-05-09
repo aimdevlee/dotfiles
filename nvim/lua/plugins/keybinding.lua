@@ -39,11 +39,12 @@ return {
             local list = harpoon:list()
             local keys = {}
             for _, item in ipairs(list.items) do
+              local filename = require('plenary.path'):new(item.value):shorten()
               local idx = #keys + 1
               keys[idx] =  {
                 ''..idx..'', function ()
                   harpoon:list():select(idx)
-                end, desc = item.value:match(".+/([^/]+)")
+                end, desc = filename
               }
             end
 
