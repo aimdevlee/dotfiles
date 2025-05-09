@@ -61,9 +61,6 @@ keymap.set("v", ">", ">gv")
 keymap.set("n", "gco", "o<esc>Vcx<esc><cmd>normal gcc<cr>fxa<bs>", { desc = "Add Comment Below" })
 keymap.set("n", "gcO", "O<esc>Vcx<esc><cmd>normal gcc<cr>fxa<bs>", { desc = "Add Comment Above" })
 
---  lazy
-keymap.set("n", "<leader>l", "<cmd>Lazy<cr>", { desc = "Lazy" })
-
 --  new file
 keymap.set("n", "<leader>fn", "<cmd>enew<cr>", { desc = "New File" })
 

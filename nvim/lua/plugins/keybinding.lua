@@ -55,6 +55,7 @@ return {
           { "<leader>u", group = "UI" },
           { "<leader>x", group = "Diagnostics / Quickfix" },
           { "<leader>y", group = "Yank" },
+          { "<leader>l", group = "LSP" },
         },
       })
     end,

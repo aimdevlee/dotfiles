@@ -49,14 +49,14 @@ return {
       keymap.set("n", "<leader>?", function() FzfLua.live_grep_glob() end, { desc = "Live Grep" })
 
       -- lsp
-      keymap.set("n", "ga", function() FzfLua.lsp_code_actions() end, { desc = "Lsp Code Actions" })
-      keymap.set("n", "gd", function() FzfLua.lsp_definitions() end, { desc = "Lsp Definitions" })
-      keymap.set("n", "gD", function() FzfLua.lsp_declarations() end, { desc = "Lsp Declarations" })
-      keymap.set("n", "gI", function() FzfLua.lsp_implementations() end, { desc = "Lsp Implementations" })
-      keymap.set("n", "gr", function() FzfLua.lsp_references() end, { desc = "Lsp References" })
-      keymap.set("n", "gs", function() FzfLua.lsp_document_symbols() end, { desc = "Lsp Document Symbols" })
-      keymap.set("n", "gS", function() FzfLua.lsp_workspace_symbols() end, { desc = "Lsp Workspace Symbols" })
-      keymap.set("n", "gt", function() FzfLua.lsp_typedefs() end, { desc = "Lsp Type Definitions" })
+      keymap.set("n", "<leader>la", function() FzfLua.lsp_code_actions() end, { desc = "Lsp Code Actions" })
+      keymap.set("n", "<leader>ld", function() FzfLua.lsp_definitions() end, { desc = "Lsp Definitions" })
+      keymap.set("n", "<leader>lD", function() FzfLua.lsp_declarations() end, { desc = "Lsp Declarations" })
+      keymap.set("n", "<leader>lI", function() FzfLua.lsp_implementations() end, { desc = "Lsp Implementations" })
+      keymap.set("n", "<leader>lr", function() FzfLua.lsp_references() end, { desc = "Lsp References" })
+      keymap.set("n", "<leader>ls", function() FzfLua.lsp_document_symbols() end, { desc = "Lsp Document Symbols" })
+      keymap.set("n", "<leader>lS", function() FzfLua.lsp_workspace_symbols() end, { desc = "Lsp Workspace Symbols" })
+      keymap.set("n", "<leader>lt", function() FzfLua.lsp_typedefs() end, { desc = "Lsp Type Definitions" })
       -- stylua: ignore end
     end,
   },
