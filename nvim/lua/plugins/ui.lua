@@ -82,7 +82,7 @@ return {
     event = "VeryLazy",
     config = function()
       local use_globalstatus = vim.fn.has("nvim-0.8.0") > 0
-      local color = { bg = "#181825", fg = "#cdd6f4" }
+      local color = { bg = "none", fg = "#cdd6f4" }
       local opts = {
         options = {
           theme = "catppuccin",
