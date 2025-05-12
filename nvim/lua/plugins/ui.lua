@@ -101,17 +101,23 @@ return {
         },
         sections = {
           lualine_a = {
-            { "mode", padding = 1 },
+            {
+              "mode",
+              padding = 1,
+              cond = function()
+                return vim.fn.reg_recording() == ""
+              end,
+            },
             {
               "macro",
               fmt = function()
                 local reg = vim.fn.reg_recording()
                 if reg ~= "" then
-                  return "Recording @" .. reg
+                  return " Recording @" .. reg
                 end
                 return nil
               end,
-              color = { fg = "#f5e0dc" },
+              color = { bg = "#cba6f7", gui = "italic,bold" },
               draw_empty = false,
             },
           },
@@ -138,20 +144,14 @@ return {
               color = color,
             },
           },
-          lualine_y = {
+          lualine_y = {},
+          lualine_z = {
             {
               "progress",
               padding = { left = 1, right = 1 },
               color = color,
             },
-            { "location", padding = { left = 1, right = 1 }, color = color },
-          },
-          lualine_z = {
-            {
-              function()
-                return "  " .. os.date("%R")
-              end,
-            },
+            { "location", padding = { left = 1 }, color = color },
           },
         },
         inactive_sections = {
