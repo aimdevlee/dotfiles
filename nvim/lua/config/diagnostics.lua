@@ -39,7 +39,7 @@ vim.diagnostic.config({
 
 local last_line = vim.fn.line(".")
 
-vim.api.nvim_create_autocmd({ "CursorMoved" }, {
+vim.api.nvim_create_autocmd({ "CursorMoved", "ModeChanged" }, {
   callback = function()
     local current_line = vim.fn.line(".")
 
@@ -51,6 +51,14 @@ vim.api.nvim_create_autocmd({ "CursorMoved" }, {
 
     -- Update the last_line variable
     last_line = current_line
+
+    local current_mode = vim.fn.mode()
+    if current_mode == "v" or current_mode == "V" or current_mode == "\22" then
+      -- hide diagnostics line in visual mode
+      vim.diagnostic.hide()
+    else
+      vim.diagnostic.show()
+    end
   end,
 })
 
