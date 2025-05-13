@@ -1,6 +1,8 @@
 -- common lsp config
 vim.lsp.config("*", {
-  offset_encoding = "utf-16",
+  capabilities = {
+    offsetEncoding = "utf-16",
+  },
 })
 
 -- sorbet
