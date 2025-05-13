@@ -11,9 +11,6 @@ return {
           row = 0.5,
           height = 0.7,
           backdrop = 100,
-          preview = {
-            layout = "vertical",
-          },
         },
         fzf_opts = {},
         keymap = {
@@ -35,7 +32,7 @@ return {
             ["<M-p>"] = "preview-up",
           },
         },
-        buffers = {},
+        buffers = { formatter = "path.filename_first" },
       })
       local keymap = vim.keymap
 
