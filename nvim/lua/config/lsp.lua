@@ -1,8 +1,6 @@
 -- common lsp config
 vim.lsp.config("*", {
-  capabilities = {
-    offsetEncoding = "utf-16",
-  },
+  capabilities = {},
 })
 
 -- sorbet
@@ -36,6 +34,9 @@ vim.lsp.config("sorbet", {
 vim.lsp.config("ruby_lsp", {
   init_options = {
     formatter = "auto",
+  },
+  capabilities = {
+    general = { positionEncodings = "utf-16" },
   },
 })
 
