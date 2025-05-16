@@ -1,3 +1,7 @@
+local DIAGNOSTICS_DISABLED = {
+  "lazy",
+}
+
 vim.diagnostic.config({
   -- virtual_text = {
   --   spacing = 4,
@@ -41,6 +45,10 @@ local last_line = vim.fn.line(".")
 
 vim.api.nvim_create_autocmd({ "CursorMoved", "ModeChanged" }, {
   callback = function()
+    if vim.tbl_contains(DIAGNOSTICS_DISABLED, vim.bo.filetype) then
+      return nil
+    end
+
     local current_line = vim.fn.line(".")
 
     -- Check if the cursor has moved to a different line
@@ -68,5 +76,16 @@ vim.api.nvim_create_autocmd("VimResized", {
   callback = function()
     vim.diagnostic.hide()
     vim.diagnostic.show()
+  end,
+})
+
+-- Disable diagnostics
+vim.api.nvim_create_autocmd("BufEnter", {
+  callback = function(event)
+    -- DIAGNOSTICS_DIABLES has filetype then hide diagnostics
+    if vim.tbl_contains(DIAGNOSTICS_DISABLED, vim.bo.filetype) then
+      vim.diagnostic.hide()
+      return nil
+    end
   end,
 })
