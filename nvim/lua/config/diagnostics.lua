@@ -3,21 +3,21 @@ local DIAGNOSTICS_DISABLED = {
 }
 
 vim.diagnostic.config({
-  -- virtual_text = {
-  --   spacing = 4,
-  --   source = "if_many",
-  --   prefix = "●",
-  --   format = function(diagnostic)
-  --     if vim.fn.line(".") == diagnostic.lnum + 1 then
-  --       return nil
-  --     end
-  --
-  --     return diagnostic.message
-  --   end,
-  -- },
-  virtual_lines = {
-    current_line = true,
+  virtual_text = {
+    spacing = 4,
+    source = "if_many",
+    prefix = "●",
+    format = function(diagnostic)
+      if vim.fn.line(".") == diagnostic.lnum + 1 then
+        return nil
+      end
+
+      return diagnostic.message
+    end,
   },
+  -- virtual_lines = {
+  --   current_line = true,
+  -- },
   underline = true,
   update_in_insert = false,
   severity_sort = true,
