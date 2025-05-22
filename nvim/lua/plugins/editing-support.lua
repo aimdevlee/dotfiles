@@ -79,37 +79,33 @@ return {
     end,
   },
   {
+    "zbirenbaum/copilot.lua",
+    cmd = "Copilot",
+    event = "InsertEnter",
+    config = function()
+      require("copilot").setup({
+        panel = {
+          enabled = true,
+          layout = {
+            position = "right",
+          },
+        },
+        suggestion = { enabled = true, auto_trigger = true, hide_during_completion = true },
+        copilot_model = "gpt-4o-copilot",
+      })
+    end,
+  },
+  {
     "saghen/blink.cmp",
     dependencies = {
       "fang2hou/blink-copilot",
       { "L3MON4D3/LuaSnip", version = "v2.*", dependencies = { "rafamadriz/friendly-snippets" } },
-      {
-        "zbirenbaum/copilot.lua",
-        cmd = "Copilot",
-        event = "InsertEnter",
-        opts = {
-          suggestion = { enabled = false },
-          panel = { enabled = false },
-          copilot_model = "gpt-4o-2024-08-06",
-        },
-      },
     },
     version = "1.*",
     config = function()
       require("blink.cmp").setup({
         sources = {
-          default = { "lsp", "snippets", "path", "buffer", "copilot" },
-          providers = {
-            copilot = {
-              name = "copilot",
-              module = "blink-copilot",
-              score_offset = 100,
-              async = true,
-              opts = {
-                debounce = 1000,
-              },
-            },
-          },
+          default = { "lsp", "snippets", "path", "buffer" },
         },
         snippets = { preset = "luasnip" },
         cmdline = { enabled = true },
@@ -128,7 +124,6 @@ return {
             winhighlight = "Normal:None,FloatBorder:NoiceCmdlinePopupBorder",
             border = "rounded",
           },
-          ghost_text = { enabled = true },
           documentation = {
             auto_show = true,
             auto_show_delay_ms = 500,
