@@ -40,7 +40,7 @@
   {
     "key": "ctrl+g r",
     "command": "editor.action.goToReferences",
-    "when": "editorHasReferenceProvider && editorTextFocus && !inReferenceSearchEditor && !isInEmbeddedEditor"
+    "when": "editorHasReferenceProvider && editorTextFocus && !inReferenceSearchEditor && !isInEmbeddedEditor && neovim.mode == 'normal'"
   },
   {
     "key": "shift+f12",
@@ -50,7 +50,7 @@
   {
     "key": "ctrl+g d",
     "command": "editor.action.revealDefinition",
-    "when": "editorHasDefinitionProvider && editorTextFocus"
+    "when": "editorHasDefinitionProvider && editorTextFocus && neovim.mode == 'normal'"
   },
   {
     "key": "f12",
@@ -60,7 +60,7 @@
   {
     "key": "] c",
     "command": "workbench.action.compareEditor.nextChange",
-    "when": "textCompareEditorVisible"
+    "when": "textCompareEditorVisible && neovim.mode == 'normal'"
   },
   {
     "key": "alt+f5",
@@ -70,7 +70,7 @@
   {
     "key": "] c",
     "command": "workbench.action.editor.nextChange",
-    "when": "editorTextFocus && !textCompareEditorActive"
+    "when": "editorTextFocus && !textCompareEditorActive && neovim.mode == 'normal'"
   },
   {
     "key": "alt+f5",
@@ -80,7 +80,7 @@
   {
     "key": "[ c",
     "command": "workbench.action.compareEditor.previousChange",
-    "when": "textCompareEditorVisible"
+    "when": "textCompareEditorVisible && neovim.mode == 'normal'"
   },
   {
     "key": "shift+alt+f5",
@@ -90,7 +90,7 @@
   {
     "key": "[ c",
     "command": "workbench.action.editor.previousChange",
-    "when": "editorTextFocus && !textCompareEditorActive"
+    "when": "editorTextFocus && !textCompareEditorActive && neovim.mode == 'normal'"
   },
   {
     "key": "shift+alt+f5",
@@ -100,7 +100,7 @@
   {
     "key": "[ shift+c",
     "command": "editor.action.dirtydiff.previous",
-    "when": "editorTextFocus && !textCompareEditorActive"
+    "when": "editorTextFocus && !textCompareEditorActive && neovim.mode == 'normal'"
   },
   {
     "key": "shift+alt+f3",
@@ -110,11 +110,61 @@
   {
     "key": "] shift+c",
     "command": "editor.action.dirtydiff.next",
-    "when": "editorTextFocus && !textCompareEditorActive"
+    "when": "editorTextFocus && !textCompareEditorActive && neovim.mode == 'normal'"
   },
   {
     "key": "alt+f3",
     "command": "-editor.action.dirtydiff.next",
     "when": "editorTextFocus && !textCompareEditorActive"
+  },
+  {
+    "key": "ctrl+g r",
+    "command": "editor.action.referenceSearch.trigger",
+    "when": "editorFocus && neovim.mode == 'normal'"
+  },
+  {
+    "key": "ctrl+g t",
+    "command": "editor.action.peekTypeDefinition",
+    "when": "editorFocus && neovim.mode == 'normal'"
+  },
+  {
+    "key": "] shift+d",
+    "command": "editor.action.marker.next",
+    "when": "editorFocus && neovim.mode == 'normal'"
+  },
+  {
+    "key": "alt+f8",
+    "command": "-editor.action.marker.next",
+    "when": "editorFocus"
+  },
+  {
+    "key": "] d",
+    "command": "editor.action.marker.nextInFiles",
+    "when": "editorFocus && neovim.mode == 'normal'"
+  },
+  {
+    "key": "f8",
+    "command": "-editor.action.marker.nextInFiles",
+    "when": "editorFocus"
+  },
+  {
+    "key": "[ shift+d",
+    "command": "editor.action.marker.prev && neovim.mode == 'normal'",
+    "when": "editorFocus && neovim.mode == 'normal'"
+  },
+  {
+    "key": "shift+alt+f8",
+    "command": "-editor.action.marker.prev",
+    "when": "editorFocus"
+  },
+  {
+    "key": "[ d",
+    "command": "editor.action.marker.prevInFiles",
+    "when": "editorFocus && neovim.mode == 'normal'"
+  },
+  {
+    "key": "shift+f8",
+    "command": "-editor.action.marker.prevInFiles",
+    "when": "editorFocus"
   }
 ]
