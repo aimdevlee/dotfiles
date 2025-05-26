@@ -129,6 +129,14 @@ return {
     end,
   },
   {
+    {
+      "echasnovski/mini.ai",
+      config = function()
+        require("mini.ai").setup({})
+      end,
+    },
+  },
+  {
     "MeanderingProgrammer/render-markdown.nvim",
     ft = { "markdown", "codecompanion" },
     config = function()
