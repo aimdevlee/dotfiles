@@ -79,23 +79,6 @@ return {
     end,
   },
   {
-    "zbirenbaum/copilot.lua",
-    cmd = "Copilot",
-    event = "InsertEnter",
-    config = function()
-      require("copilot").setup({
-        panel = {
-          enabled = true,
-          layout = {
-            position = "right",
-          },
-        },
-        suggestion = { enabled = true, auto_trigger = true, hide_during_completion = true },
-        copilot_model = "gpt-4o-copilot",
-      })
-    end,
-  },
-  {
     "saghen/blink.cmp",
     dependencies = {
       "fang2hou/blink-copilot",
@@ -104,8 +87,14 @@ return {
     version = "1.*",
     config = function()
       require("blink.cmp").setup({
+        enabled = function()
+          return not vim.tbl_contains({ "codecompanion", "markdown" }, vim.bo.filetype)
+        end,
         sources = {
           default = { "lsp", "snippets", "path", "buffer" },
+          per_filetype = {
+            codecompanion = { "codecompanion" },
+          },
         },
         snippets = { preset = "luasnip" },
         cmdline = { enabled = true },
@@ -137,6 +126,15 @@ return {
         },
       })
       vim.api.nvim_set_hl(0, "BlinkCmpDocSeparator", { link = "Special" }) -- as same as signature in noice
+    end,
+  },
+  {
+    "MeanderingProgrammer/render-markdown.nvim",
+    ft = { "markdown", "codecompanion" },
+    config = function()
+      require("render-markdown").setup({
+        completions = { blink = { enabled = true } },
+      })
     end,
   },
 }
