@@ -38,7 +38,7 @@ return {
       notifier = { enabled = true },
       picker = {
         enabled = true,
-        layout = { fullscreen = true },
+        layout = { fullscreen = false },
         formatters = {
           file = {
             filename_first = true,
