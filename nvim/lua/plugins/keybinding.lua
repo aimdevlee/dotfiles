@@ -26,8 +26,8 @@ return {
           { "[", group = "Prev" },
           { "]", group = "Next" },
           { "g", group = "Goto" },
-          { "sa", group = "surround" },
           { "<leader>a", group = "Ai" },
+          { "<leader>s", group = "Search" },
           { "<leader>c", group = "Code" },
           { "<leader>f", group = "Find/File" },
           { "<leader><tab>", group = "Tabs" },
@@ -56,7 +56,6 @@ return {
           { "<leader>u", group = "UI" },
           { "<leader>x", group = "Diagnostics / Quickfix" },
           { "<leader>y", group = "Yank" },
-          { "<leader>l", group = "LSP" },
         },
       })
     end,
