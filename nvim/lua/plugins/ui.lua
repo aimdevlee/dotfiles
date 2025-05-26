@@ -44,6 +44,7 @@ return {
   },
   {
     "sphamba/smear-cursor.nvim",
+    enabled = false,
     config = function()
       require("smear_cursor").setup({
         min_horizontal_distance_smear = 3,
