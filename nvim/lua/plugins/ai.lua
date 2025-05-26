@@ -41,7 +41,6 @@ return {
         },
         opts = {
           language = "Korean",
-          send_code = false,
         },
         display = {
           action_palette = {
@@ -53,6 +52,14 @@ return {
           },
         },
       })
+
+      vim.keymap.set("n", "<leader>cc", function()
+        require("codecompanion").toggle()
+      end, { desc = "Toggle Code Companion" })
+      vim.keymap.set("v", "<LocalLeader>a", "<cmd>CodeCompanionChat Add<cr>", { noremap = true, silent = true })
+
+      -- Expand 'cc' into 'CodeCompanion' in the command line
+      vim.cmd([[cab cc CodeCompanion]])
     end,
   },
 }
