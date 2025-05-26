@@ -57,27 +57,6 @@ return {
     end,
   },
   {
-    "lukas-reineke/indent-blankline.nvim",
-    main = "ibl",
-    event = "VeryLazy",
-    config = function()
-      require("ibl").setup({
-        exclude = { filetypes = { "dashboard" } },
-        scope = {
-          show_start = false,
-        },
-        indent = {
-          char = "┊",
-          tab_char = "┊",
-          smart_indent_cap = true,
-        },
-        whitespace = {
-          remove_blankline_trail = true,
-        },
-      })
-    end,
-  },
-  {
     "nvim-lualine/lualine.nvim",
     event = "VeryLazy",
     config = function()
@@ -88,6 +67,7 @@ return {
           theme = "catppuccin",
           globalstatus = use_globalstatus,
           disabled_filetypes = {
+            "snacks_dashboard",
             "dashboard",
             "gitsigns-blame",
             "noice",
