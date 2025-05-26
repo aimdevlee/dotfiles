@@ -87,9 +87,6 @@ return {
     version = "1.*",
     config = function()
       require("blink.cmp").setup({
-        enabled = function()
-          return not vim.tbl_contains({ "codecompanion", "markdown" }, vim.bo.filetype)
-        end,
         sources = {
           default = { "lsp", "snippets", "path", "buffer" },
           per_filetype = {
