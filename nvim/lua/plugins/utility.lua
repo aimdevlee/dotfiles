@@ -98,7 +98,7 @@ return {
   },
   {
     "mrjones2014/smart-splits.nvim",
-    config = function()
+     config = function () 
       require("smart-splits").setup({ at_edge = "stop" })
       local keymap = vim.keymap
       -- move between pane in nvim or tmux or terminal multiplexer
