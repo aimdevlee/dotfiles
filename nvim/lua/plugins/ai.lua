@@ -18,7 +18,6 @@ return {
   },
   {
     "olimorris/codecompanion.nvim",
-    lazy = true,
     config = function()
       require("codecompanion").setup({
         strategies = {
