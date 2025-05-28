@@ -5,6 +5,7 @@ return {
   },
   {
     "b0o/incline.nvim",
+    enabled = false,
     event = "BufRead",
     config = function()
       require("incline").setup({
@@ -105,6 +106,7 @@ return {
           lualine_b = {
             { "branch", color = color },
             { "filename", path = 1, color = color },
+            { "diagnostics", color = color },
           },
           lualine_c = {},
           lualine_x = {
