@@ -26,5 +26,10 @@
   "Lua.codeLens.enable": true,
   "[lua]": {
     "editor.defaultFormatter": "sumneko.lua"
-  }
+  },
+  "terminal.explorerKind": "external",
+  "terminal.external.osxExec": "Ghostty.app",
+  "git.confirmSync": false,
+  "editor.accessibilitySupport": "off",
+  "editor.smoothScrolling": true
 }

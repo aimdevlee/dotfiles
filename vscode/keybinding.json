@@ -166,5 +166,47 @@
     "key": "shift+f8",
     "command": "-editor.action.marker.prevInFiles",
     "when": "editorFocus"
+  },
+  {
+    "key": "ctrl+u",
+    "command": "runCommands",
+    "args": {
+      "commands": [
+        {
+          "command": "cursorMove",
+          "args": {
+            "to": "viewPortTop"
+          }
+        },
+        {
+          "command": "editorScroll",
+          "args": {
+            "to": "up",
+            "by": "halfPage"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "key": "ctrl+d",
+    "command": "runCommands",
+    "args": {
+      "commands": [
+        {
+          "command": "cursorMove",
+          "args": {
+            "to": "viewPortBottom"
+          }
+        },
+        {
+          "command": "editorScroll",
+          "args": {
+            "to": "down",
+            "by": "halfPage"
+          }
+        }
+      ]
+    }
   }
 ]
