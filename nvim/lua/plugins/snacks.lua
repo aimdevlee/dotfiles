@@ -9,8 +9,8 @@ return {
         enabled = true,
         preset = {
           pick = "fzf-lua",
-          -- header = [[
-          -- ]],
+          header = [[
+          ]],
           keys = {
             -- stylua: ignore start
             { icon = "", key = "f", desc = "Find File", action = ":lua Snacks.dashboard.pick('files')" },
@@ -27,13 +27,33 @@ return {
           },
         },
         sections = {
-          { section = "header" },
-          { section = "keys", gap = 1, padding = 1 },
-          { section = "startup" },
+          {
+            pane = 1,
+            {
+              section = "terminal",
+              cmd = "neofetch",
+              height = 20,
+            },
+          },
+          {
+            pane = 2,
+            { section = "keys", gap = 1, padding = 1 },
+            { section = "startup" },
+          },
         },
       },
       gitbrwose = { enabled = true },
-      indent = { enabled = true },
+      indent = {
+        enabled = true,
+        filter = function(buf)
+          local exlude_filetypes = { "markdown" }
+          if vim.tbl_contains(exlude_filetypes, vim.bo[buf].filetype) then
+            return false
+          end
+
+          return vim.g.snacks_indent ~= false and vim.b[buf].snacks_indent ~= false and vim.bo[buf].buftype == ""
+        end,
+      },
       input = { enabled = true },
       notifier = { enabled = true },
       picker = {
@@ -41,12 +61,14 @@ return {
         layout = { fullscreen = false },
         formatters = {
           file = {
-            filename_first = true,
+            truncate = 100,
+            filename_first = false,
           },
         },
       },
       statuscolumn = { enabled = true },
       scope = { enabled = true },
+      scroll = { enabled = true },
       words = { enabled = true },
     },
     keys = {
