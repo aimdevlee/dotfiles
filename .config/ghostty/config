@@ -1,0 +1,36 @@
+auto-update = check
+auto-update-channel = stable
+background-opacity = 0.95
+background-blur = 20
+confirm-close-surface = false
+copy-on-select = true
+cursor-style-blink = false
+shell-integration-features = no-cursor
+custom-shader = ./shaders/cursor-smear.glsl
+font-family = PlemolJP Console NF
+font-family = NanumGothicCoding
+font-feature = -dlig
+font-size = 14
+adjust-cell-height = 10%
+
+keybind = super+shift+\=new_split:right
+keybind = super+shift+-=new_split:down
+keybind = super+shift+h=goto_split:left
+keybind = super+shift+j=goto_split:down
+keybind = super+shift+k=goto_split:up
+keybind = super+shift+l=goto_split:right
+keybind = super+i=inspector:toggle
+keybind = super+r=reload_config
+keybind = cmd+s=toggle_quick_terminal
+macos-titlebar-style = hidden
+macos-option-as-alt = left
+mouse-hide-while-typing = true
+quick-terminal-animation-duration = 0.08
+quick-terminal-position = center
+shell-integration = zsh
+shell-integration-features = no-cursor
+theme = Rose Pine Moon
+window-padding-x = 4
+window-padding-balance = true
+window-padding-color = extend
+
