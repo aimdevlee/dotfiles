@@ -1,0 +1,48 @@
+[user]
+  name = aimdevlee
+  email = aimdevlee@gmail.com
+
+[core]
+  editor = nvim
+  pager = delta
+
+[init]
+  defaultBranch = main
+
+[pull]
+  rebase = true
+
+[push]
+  autoSetupRemote = true
+
+[fetch]
+  prune = true
+
+[alias]
+  st = status
+  co = checkout
+  br = branch
+  ci = commit
+  amend = commit --amend --no-edit
+  hist = log --pretty=format:'%h %ad | %s%d [%an]' --graph --date=short
+  l = log --pretty=format:'%C(yellow)%h%Cred%d %Creset%s%Cblue [%an, %ce]' --decorate
+  last = log -1 HEAD
+
+[color]
+  ui = true
+
+[interactive]
+  diffFilter = delta --color-only
+
+[delta]
+  navigate = true
+  dark = true
+  line-numbers = true
+  diff-so-fancy = true
+
+[merge]
+  conflictStyle = diff3
+
+[include]
+  path = ~/.gitconfig.local
+
