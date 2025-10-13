@@ -68,12 +68,12 @@ map("n", "<leader>e", function() Snacks.explorer() end, { desc = "File Explorer"
 
 -- find
 map("n", "<leader>fb", function() Snacks.picker.buffers() end, { desc = "Buffers" })
-map("n", "<leader>fc", function() Snacks.picker.files({ cwd = vim.fn.stdpath("config") }) end,
-  { desc = "Find Config File" })
+map("n", "<leader>fc", function() Snacks.picker.files({ cwd = vim.fn.stdpath("config") }) end, { desc = "Find Config File" })
 map("n", "<leader>ff", function() Snacks.picker.files() end, { desc = "Find Files" })
 map("n", "<leader>fg", function() Snacks.picker.git_files() end, { desc = "Find Git Files" })
 map("n", "<leader>fp", function() Snacks.picker.projects() end, { desc = "Projects" })
 map("n", "<leader>fr", function() Snacks.picker.recent() end, { desc = "Recent" })
+
 -- git
 map("n", "<leader>gb", function() Snacks.picker.git_branches() end, { desc = "Git Branches" })
 map("n", "<leader>gl", function() Snacks.picker.git_log() end, { desc = "Git Log" })
@@ -82,12 +82,12 @@ map("n", "<leader>gs", function() Snacks.picker.git_status() end, { desc = "Git 
 map("n", "<leader>gS", function() Snacks.picker.git_stash() end, { desc = "Git Stash" })
 map("n", "<leader>gd", function() Snacks.picker.git_diff() end, { desc = "Git Diff (Hunks)" })
 map("n", "<leader>gf", function() Snacks.picker.git_log_file() end, { desc = "Git Log File" })
--- Grep
+
+-- serch & grep
 map("n", "<leader>sb", function() Snacks.picker.lines() end, { desc = "Buffer Lines" })
 map("n", "<leader>sB", function() Snacks.picker.grep_buffers() end, { desc = "Grep Open Buffers" })
 map("n", "<leader>sg", function() Snacks.picker.grep() end, { desc = "Grep" })
 map({ "n", "x" }, "<leader>sw", function() Snacks.picker.grep_word() end, { desc = "Visual selection or word" })
--- search
 map("n", '<leader>s"', function() Snacks.picker.registers() end, { desc = "Registers" })
 map("n", '<leader>s/', function() Snacks.picker.search_history() end, { desc = "Search History" })
 map("n", "<leader>sa", function() Snacks.picker.autocmds() end, { desc = "Autocmds" })
@@ -109,6 +109,7 @@ map("n", "<leader>sq", function() Snacks.picker.qflist() end, { desc = "Quickfix
 map("n", "<leader>sR", function() Snacks.picker.resume() end, { desc = "Resume" })
 map("n", "<leader>su", function() Snacks.picker.undo() end, { desc = "Undo History" })
 map("n", "<leader>uC", function() Snacks.picker.colorschemes() end, { desc = "Colorschemes" })
+
 -- LSP
 map("n", "grd", function() Snacks.picker.lsp_definitions() end, { desc = "Goto Definition" })
 map("n", "grD", function() Snacks.picker.lsp_declarations() end, { desc = "Goto Declaration" })
@@ -118,6 +119,7 @@ map("n", "grt", function() Snacks.picker.lsp_type_definitions() end, { desc = "G
 map("n", "grs", function() vim.lsp.buf.document_symbol() end, { desc = "Goto Symbol" })
 map("n", "<leader>ss", function() Snacks.picker.lsp_symbols() end, { desc = "LSP Symbols" })
 map("n", "<leader>sS", function() Snacks.picker.lsp_workspace_symbols() end, { desc = "LSP Workspace Symbols" })
+
 -- Other
 map("n", "<leader>z", function() Snacks.zen() end, { desc = "Toggle Zen Mode" })
 map("n", "<leader>Z", function() Snacks.zen.zoom() end, { desc = "Toggle Zoom" })

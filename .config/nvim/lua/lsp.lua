@@ -40,22 +40,29 @@ vim.api.nvim_create_autocmd('LspAttach', {
 vim.api.nvim_create_autocmd({ 'BufReadPre', 'BufNewFile' }, {
   once = true,
   callback = function()
-    -- local server_configs = vim
-    --   .iter(vim.api.nvim_get_runtime_file('lsp/*.lua', true))
-    --   :map(function(file)
-    --     return vim.fn.fnamemodify(file, ':t:r')
-    --   end)
-    --   :totable()
-    --
-    -- vim.lsp.enable(server_configs)
     local lsp_path = vim.fn.stdpath('config') .. '/lsp'
     local files = vim.fn.readdir(lsp_path)
+
+    -- Load each LSP config file and register it
+    for _, file in ipairs(files) do
+      if file:match('%.lua$') then
+        local server_name = vim.fn.fnamemodify(file, ':t:r')
+        local config_path = lsp_path .. '/' .. file
+        local config = dofile(config_path)
+
+        if config and type(config) == 'table' then
+          vim.lsp.config(server_name, config)
+        end
+      end
+    end
+
+    -- Enable all loaded servers
     local server_configs = vim
       .iter(files)
       :map(function(file)
         return vim.fn.fnamemodify(file, ':t:r')
       end)
       :totable()
-    vim.lsp.enable(vim.tbl_deep_extend('force', server_configs, { 'tsgo', 'eslint' }))
+    vim.lsp.enable(server_configs)
   end,
 })
