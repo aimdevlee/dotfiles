@@ -22,7 +22,7 @@ keybind = super+shift+l=goto_split:right
 keybind = super+i=inspector:toggle
 keybind = super+r=reload_config
 keybind = cmd+s=toggle_quick_terminal
-macos-titlebar-style = hidden
+macos-titlebar-style = transparent
 macos-option-as-alt = left
 mouse-hide-while-typing = true
 quick-terminal-animation-duration = 0.08
@@ -33,4 +33,3 @@ theme = Rose Pine Moon
 window-padding-x = 4
 window-padding-balance = true
 window-padding-color = extend
-
