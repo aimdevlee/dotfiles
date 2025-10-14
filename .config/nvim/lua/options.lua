@@ -4,19 +4,19 @@ local o = vim.o
 -- ========================================
 -- Leader Keys
 -- ========================================
-g.mapleader = " "
-g.maplocalleader = "\\"
+g.mapleader = ' '
+g.maplocalleader = '\\'
 
 -- ========================================
 -- Editor Behavior
 -- ========================================
 -- Enable mouse in all modes (normal, insert, visual, command)
 -- Example: Click to position cursor, drag to select, scroll with wheel
-o.mouse = "a"
+o.mouse = 'a'
 
 -- Sync with system clipboard
 -- Example: yy copies line to system clipboard, can paste in other apps
-o.clipboard = "unnamedplus"
+o.clipboard = 'unnamedplus'
 
 -- Persistent undo across sessions
 -- Example: Close nvim, reopen file, press u to undo previous session's changes
@@ -41,7 +41,7 @@ o.autowrite = true
 
 -- Allow cursor to go beyond line end in visual block mode
 -- Example: <C-v> can select rectangle beyond line endings for alignment
-o.virtualedit = "block"
+o.virtualedit = 'block'
 
 -- ========================================
 -- User Interface
@@ -57,10 +57,10 @@ o.cursorline = true
 
 -- Always reserve space for signs (breakpoints, git, diagnostics)
 -- Example: No text shift when git signs appear/disappear
-o.signcolumn = "yes"
+o.signcolumn = 'yes'
 
 -- No vertical line at column 80 by default
-o.colorcolumn = ""
+o.colorcolumn = ''
 
 -- Enable 24-bit RGB colors (requires compatible terminal)
 o.termguicolors = true
@@ -110,12 +110,12 @@ o.incsearch = true
 
 -- Live preview of substitutions in split window
 -- Example: :%s/foo/bar shows changes before confirming
-o.inccommand = "split"
+o.inccommand = 'split'
 
 -- Use ripgrep for :grep command
 -- Example: :grep "TODO" finds all TODOs using ripgrep
-o.grepprg = "rg --vimgrep"
-o.grepformat = "%f:%l:%c:%m"
+o.grepprg = 'rg --vimgrep'
+o.grepformat = '%f:%l:%c:%m'
 
 -- ========================================
 -- Indentation & Formatting
@@ -162,7 +162,7 @@ o.splitright = true
 
 -- Keep same screen line when opening splits
 -- Example: :split doesn't jump to different position
-o.splitkeep = "screen"
+o.splitkeep = 'screen'
 
 -- Minimum window width when splitting
 o.winminwidth = 5
@@ -178,14 +178,14 @@ o.foldenable = true
 o.foldlevelstart = 99
 
 -- Use treesitter for smart folding (functions, classes, etc)
-o.foldmethod = "expr"
-o.foldexpr = "v:lua.vim.treesitter.foldexpr()"
+o.foldmethod = 'expr'
+o.foldexpr = 'v:lua.vim.treesitter.foldexpr()'
 
 -- Default fold text display
-o.foldtext = ""
+o.foldtext = ''
 
 -- Don't show fold indicators in left column
-o.foldcolumn = "0"
+o.foldcolumn = '0'
 
 -- ========================================
 -- Special Characters & Display
@@ -193,11 +193,11 @@ o.foldcolumn = "0"
 -- Show invisible characters
 -- Example: Tabs appear as "» ", trailing spaces as "·"
 o.list = true
-o.listchars = "tab:» ,trail:·,nbsp:␣,extends:→,precedes:←"
+o.listchars = 'tab:» ,trail:·,nbsp:␣,extends:→,precedes:←'
 
 -- UI border/fill characters
 -- Example: Empty lines show nothing (not ~), folds use custom icons
-o.fillchars = "eob: ,fold: ,foldopen:▾,foldsep: ,foldclose:▸,diff:╱"
+o.fillchars = 'eob: ,fold: ,foldopen:▾,foldsep: ,foldclose:▸,diff:╱'
 
 -- Don't hide text (markdown, json, etc)
 -- Example: **bold** shows asterisks in markdown
@@ -205,32 +205,32 @@ o.conceallevel = 0
 
 -- Abbreviate messages to reduce "Press ENTER" prompts
 -- Example: "W" instead of "written", no intro message
-o.shortmess = "filnxtToOFWIcC"
+o.shortmess = 'filnxtToOFWIcC'
 
 -- ========================================
 -- Other Settings
 -- ========================================
 -- Better jumplist behavior
 -- Example: <C-o>/<C-i> navigate through jump history more intuitively
-o.jumpoptions = "stack"
+o.jumpoptions = 'stack'
 
 -- What to save in sessions
-o.sessionoptions = "buffers,curdir,tabpages,winsize,help,globals,skiprtp,folds"
+o.sessionoptions = 'buffers,curdir,tabpages,winsize,help,globals,skiprtp,folds'
 
 -- Time to wait for key sequence (ms)
 -- Example: Pressing <leader> waits 300ms for next key
 o.timeoutlen = 300
 
 -- Tab closing behavior
-o.tabclose = "uselast"
+o.tabclose = 'uselast'
 
 -- Better completion menu behavior
 -- Example: Always show menu, even for single match, don't auto-select
-o.completeopt = "menu,menuone,noselect"
+o.completeopt = 'menu,menuone,noselect'
 
 -- Command-line completion behavior
 -- Example: Tab shows longest match, then full menu
-o.wildmode = "longest:full,full"
+o.wildmode = 'longest:full,full'
 
 -- Format options (see :h formatoptions)
 -- j: Remove comment leader when joining lines
@@ -241,5 +241,4 @@ o.wildmode = "longest:full,full"
 -- l: Don't break existing long lines
 -- n: Recognize numbered lists
 -- t: Auto-wrap text
-o.formatoptions = "jcroqlnt"
-
+o.formatoptions = 'jcroqlnt'
