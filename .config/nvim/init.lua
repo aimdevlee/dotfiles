@@ -48,4 +48,9 @@ require('lazy').setup(plugins, {
   },
 })
 
-require('vim._extui').enable({})
+require('vim._extui').enable({
+  enabled = true,
+  msg = {
+    target = 'msg',
+  },
+})
