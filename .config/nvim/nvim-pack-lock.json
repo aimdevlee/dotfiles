@@ -1,0 +1,98 @@
+{
+  "plugins": {
+    "blink.cmp": {
+      "rev": "327fff9",
+      "src": "https://github.com/saghen/blink.cmp",
+      "version": "1.0.0 - 2.0.0"
+    },
+    "conform.nvim": {
+      "rev": "fbcb4fa",
+      "src": "https://github.com/stevearc/conform.nvim"
+    },
+    "friendly-snippets": {
+      "rev": "572f566",
+      "src": "https://github.com/rafamadriz/friendly-snippets"
+    },
+    "fzf-lua": {
+      "rev": "db45bab",
+      "src": "https://github.com/ibhagwan/fzf-lua"
+    },
+    "gitsigns.nvim": {
+      "rev": "1ee5c1f",
+      "src": "https://github.com/lewis6991/gitsigns.nvim"
+    },
+    "lualine.nvim": {
+      "rev": "e533fac",
+      "src": "https://github.com/nvim-lualine/lualine.nvim"
+    },
+    "mini.ai": {
+      "rev": "11c5718",
+      "src": "https://github.com/echasnovski/mini.ai"
+    },
+    "mini.clue": {
+      "rev": "6a42206",
+      "src": "https://github.com/echasnovski/mini.clue"
+    },
+    "mini.files": {
+      "rev": "51db5de",
+      "src": "https://github.com/echasnovski/mini.files"
+    },
+    "mini.nvim": {
+      "rev": "8a7cf7e",
+      "src": "https://github.com/echasnovski/mini.nvim"
+    },
+    "mini.pairs": {
+      "rev": "b9aada8",
+      "src": "https://github.com/echasnovski/mini.pairs"
+    },
+    "mini.sessions": {
+      "rev": "4ed3a61",
+      "src": "https://github.com/echasnovski/mini.sessions"
+    },
+    "mini.starter": {
+      "rev": "b43df0b",
+      "src": "https://github.com/echasnovski/mini.starter"
+    },
+    "mini.surround": {
+      "rev": "444e155",
+      "src": "https://github.com/echasnovski/mini.surround"
+    },
+    "nvim-lspconfig": {
+      "rev": "ac98db2",
+      "src": "https://github.com/neovim/nvim-lspconfig"
+    },
+    "nvim-treesitter": {
+      "rev": "42fc28ba",
+      "src": "https://github.com/nvim-treesitter/nvim-treesitter",
+      "version": "'master'"
+    },
+    "nvim-web-devicons": {
+      "rev": "b8221e4",
+      "src": "https://github.com/nvim-tree/nvim-web-devicons"
+    },
+    "oil.nvim": {
+      "rev": "7194872",
+      "src": "https://github.com/stevearc/oil.nvim"
+    },
+    "rose-pine": {
+      "rev": "72a04c4",
+      "src": "https://github.com/rose-pine/neovim"
+    },
+    "smart-splits.nvim": {
+      "rev": "da04564",
+      "src": "https://github.com/mrjones2014/smart-splits.nvim"
+    },
+    "stickybuf.nvim": {
+      "rev": "0c1e5f1",
+      "src": "https://github.com/stevearc/stickybuf.nvim"
+    },
+    "vim-fugitive": {
+      "rev": "61b51c0",
+      "src": "https://github.com/tpope/vim-fugitive"
+    },
+    "which-key.nvim": {
+      "rev": "b4177e3",
+      "src": "https://github.com/folke/which-key.nvim"
+    }
+  }
+}

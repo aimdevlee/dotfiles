@@ -61,9 +61,12 @@ local rose_pine = {
 -- Config
 local config = {
   options = {
+    disabled_filetypes = {
+      statusline = { 'ministarter' },
+    },
     component_separators = '',
     section_separators = '',
-    glaobalstatus = true,
+    globalstatus = true,
     theme = rose_pine,
   },
   sections = {

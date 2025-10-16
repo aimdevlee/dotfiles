@@ -1,56 +1,27 @@
--- Bootstrap lazy.nvim
-local lazypath = vim.fn.stdpath('data') .. '/lazy/lazy.nvim'
-if not (vim.uv or vim.loop).fs_stat(lazypath) then
-  local lazyrepo = 'https://github.com/folke/lazy.nvim.git'
-  local out = vim.fn.system({ 'git', 'clone', '--filter=blob:none', '--branch=stable', lazyrepo, lazypath })
-  if vim.v.shell_error ~= 0 then
-    vim.api.nvim_echo({
-      { 'Failed to clone lazy.nvim:\n', 'ErrorMsg' },
-      { out, 'WarningMsg' },
-      { '\nPress any key to exit...' },
-    }, true, {})
-    vim.fn.getchar()
-    os.exit(1)
-  end
-end
-vim.opt.rtp:prepend(lazypath)
+require('core.options')
+require('core.keymaps')
+require('core.autocmds')
+require('core.lsp')
 
-require('options')
-require('keymaps')
-require('diagnostics')
-require('autocmds')
-require('lsp')
-
----@type LazySpec
---- type can refers because lua_ls workspace.library setting
-local plugins = 'plugins'
-require('lazy').setup(plugins, {
-  checker = { enabled = true },
-  change_detection = { enabled = true, notify = false },
-  install = { missing = false },
-  rocks = {
-    enabled = false,
-  },
-  performance = {
-    rtp = {
-      ---@type string[]
-      disabled_plugins = {
-        -- "gzip",
-        -- "matchit",
-        -- "matchparen",
-        'netrwPlugin',
-        -- "tarPlugin",
-        -- "tohtml",
-        'tutor',
-        -- "zipPlugin",
-      },
-    },
-  },
+vim.pack.add({
+  { src = 'https://github.com/nvim-lualine/lualine.nvim' },
+  { src = 'https://github.com/rose-pine/neovim', name = 'rose-pine' },
+  { src = 'https://github.com/nvim-tree/nvim-web-devicons' },
+  { src = 'https://github.com/nvim-treesitter/nvim-treesitter', version = 'master' },
+  { src = 'https://github.com/mrjones2014/smart-splits.nvim' },
+  { src = 'https://github.com/tpope/vim-fugitive' },
+  { src = 'https://github.com/lewis6991/gitsigns.nvim' },
+  { src = 'https://github.com/echasnovski/mini.nvim' },
 })
 
-require('vim._extui').enable({
-  enabled = true,
-  msg = {
-    target = 'msg',
-  },
-})
+require('plugins.rose-pine')
+require('plugins.blink')
+require('plugins.lualine')
+require('plugins.treesitter')
+require('plugins.conform')
+require('plugins.mini')
+require('plugins.smart-splits')
+require('plugins.stickybuf')
+require('plugins.gitsigns')
+
+require('vim._extui').enable({})
