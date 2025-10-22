@@ -17,40 +17,37 @@ vim.opt.rtp:prepend(lazypath)
 
 require('options')
 require('keymaps')
-require('diagnostics')
 require('autocmds')
 require('lsp')
 
----@type LazySpec
---- type can refers because lua_ls workspace.library setting
-local plugins = 'plugins'
-require('lazy').setup(plugins, {
-  checker = { enabled = true },
-  change_detection = { enabled = true, notify = false },
-  install = { missing = false },
-  rocks = {
-    enabled = false,
+-- require('plugins')
+-- Setup lazy.nvim
+require('lazy').setup({
+  spec = {
+    'nvim-tree/nvim-web-devicons',
+    'neovim/nvim-lspconfig',
+    { import = 'plugins' },
   },
+  -- automatically check for plugin updates
+  checker = { enabled = true },
   performance = {
     rtp = {
-      ---@type string[]
+      -- Stuff I don't use.
       disabled_plugins = {
-        -- "gzip",
-        -- "matchit",
-        -- "matchparen",
+        'gzip',
         'netrwPlugin',
-        -- "tarPlugin",
-        -- "tohtml",
+        'rplugin',
+        'tarPlugin',
+        'tohtml',
         'tutor',
-        -- "zipPlugin",
+        'zipPlugin',
       },
     },
   },
+  rocks = {
+    enabled = false,
+  },
+  ui = { border = 'rounded' },
 })
 
-require('vim._extui').enable({
-  enabled = true,
-  msg = {
-    target = 'msg',
-  },
-})
+-- require('vim._extui').enable({})

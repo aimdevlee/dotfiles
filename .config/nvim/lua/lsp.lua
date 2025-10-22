@@ -1,68 +1,95 @@
--- Only set non-default LSP keymaps
-local function on_attach(client, bufnr)
-  local function map(mode, lhs, rhs, opts)
-    opts = opts or {}
-    opts.buffer = bufnr
-    vim.keymap.set(mode, lhs, rhs, opts)
-  end
+local library = vim.tbl_filter(function(d)
+  return not d:match(vim.fn.stdpath('config'))
+end, vim.api.nvim_get_runtime_file('', true))
 
-  -- Formatting with gq (native vim keybind for formatting)
-  if client:supports_method('textDocument/formatting') then
-    map('n', 'gq', function()
-      vim.lsp.buf.format({ async = true })
-    end, { desc = 'Format Buffer' })
-  end
+local servers = {
+  eslint = {},
+  tsgo = {},
+  lua_ls = {
+    runtime = {
+      version = 'LuaJIT',
+      path = { 'lua/?.lua', 'lua/?/init.lua' },
+    },
+    format = {
+      enable = false,
+    },
+    diagnostics = {
+      globals = { 'vim' },
+    },
+    workspace = {
+      checkThirdParty = false,
+      library = vim.tbl_extend('keep', {
+        '$VIMRUNTIME',
+      }, library),
+    },
+  },
+  ruby_lsp = {
+    init_options = {
+      formatter = 'auto',
+    },
+    capabilities = {
+      general = { positionEncodings = 'utf-16' },
+    },
+  },
+  sorbet = {
+    cmd = { 'bundle', 'exec', 'srb', 'typecheck', '--lsp' },
+    on_attach = function(client, _)
+      if client.server_capabilities.sorbetShowSymbolProvider then
+        vim.api.nvim_create_user_command('CopySymbolToClipboard', function()
+          -- Get the current cursor position (1-based line, 0-based column)
+          local line, col = unpack(vim.api.nvim_win_get_cursor(0))
+          local params = {
+            textDocument = { uri = 'file://' .. vim.api.nvim_buf_get_name(0) },
+            -- Adjusting line number to match 0-based indexing for Sorbet's request.
+            -- ref. https://github.com/sorbet/sorbet/blob/c73f3beb911f551e789210190c087006f46614f2/main/lsp/json_types.cc#L191
+            position = { line = line - 1, character = col },
+          }
+          local result = client.request_sync('sorbet/showSymbol', params, 3000)
 
-  -- Inlay hints toggle
-  if client:supports_method('textDocument/inlayHint') then
-    map('n', '<leader>ih', function()
-      vim.lsp.inlay_hint.enable(not vim.lsp.inlay_hint.is_enabled({ bufnr = bufnr }), { bufnr = bufnr })
-    end, { desc = 'Toggle Inlay Hints' })
+          -- copy symbol to clipboard
+          for _, response in pairs(result) do
+            if response.name then
+              vim.fn.setreg('+', response.name)
+            end
+          end
+        end, {})
+      end
+    end,
+  },
+}
+
+for server_name, config in pairs(servers) do
+  if next(config) then
+    vim.lsp.config(server_name, config)
   end
 end
 
--- LSP management commands
-vim.keymap.set('n', '<leader>li', '<cmd>LspInfo<cr>', { desc = 'Lsp Info' })
-vim.keymap.set('n', '<leader>lr', '<cmd>LspRestart<cr>', { desc = 'Lsp Restart' })
+vim.lsp.enable(vim.tbl_keys(servers))
 
--- Setup autocmd to attach keymaps when LSP attaches
 vim.api.nvim_create_autocmd('LspAttach', {
   group = vim.api.nvim_create_augroup('lsp_keymaps', { clear = true }),
   callback = function(event)
+    if not event.data or not event.data.client_id then
+      return
+    end
+
     local client = vim.lsp.get_client_by_id(event.data.client_id)
     if client then
-      on_attach(client, event.buf)
-    end
-  end,
-})
+      -- Formatting with gq (native vim keybind for formatting)
+      if client:supports_method('textDocument/formatting') then
+        vim.keymap.set('n', '<leader>lf', function()
+          vim.lsp.buf.format({ async = true })
+        end, { desc = 'Format Buffer' })
+      end
 
--- Set up LSP servers.
-vim.api.nvim_create_autocmd({ 'BufReadPre', 'BufNewFile' }, {
-  once = true,
-  callback = function()
-    local lsp_path = vim.fn.stdpath('config') .. '/lsp'
-    local files = vim.fn.readdir(lsp_path)
-
-    -- Load each LSP config file and register it
-    for _, file in ipairs(files) do
-      if file:match('%.lua$') then
-        local server_name = vim.fn.fnamemodify(file, ':t:r')
-        local config_path = lsp_path .. '/' .. file
-        local config = dofile(config_path)
-
-        if config and type(config) == 'table' then
-          vim.lsp.config(server_name, config)
-        end
+      if client:supports_method('textDocument/inlayHint') then
+        vim.keymap.set('n', '<leader>lh', function()
+          vim.lsp.inlay_hint.enable(not vim.lsp.inlay_hint.is_enabled({ bufnr = event.buf }), { bufnr = event.buf })
+        end, { desc = 'Toggle Inlay Hints' })
       end
     end
-
-    -- Enable all loaded servers
-    local server_configs = vim
-      .iter(files)
-      :map(function(file)
-        return vim.fn.fnamemodify(file, ':t:r')
-      end)
-      :totable()
-    vim.lsp.enable(server_configs)
   end,
 })
+
+vim.keymap.set('n', '<leader>li', ':LspInfo', { desc = 'Lsp Info' })
+vim.keymap.set('n', '<leader>ll', ':LspLog', { desc = 'Lsp Log' })
