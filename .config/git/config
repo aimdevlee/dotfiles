@@ -6,6 +6,12 @@
   editor = nvim
   pager = delta
 
+[gpg]
+  format = ssh
+
+[commit]
+  gpgsign = true
+
 [init]
   defaultBranch = main
 
