@@ -53,6 +53,11 @@ return {
             filename_first = false,
           },
         },
+        sources = {
+          explorer = {
+            hidden = true,
+          },
+        },
       },
       quickfile = { enabled = true },
       scope = { enabled = true },
@@ -71,7 +76,7 @@ return {
     map("n", "<leader><space>", function() Snacks.picker.smart() end, { desc = "Smart Find Files" })
     map("n", "<leader>:", function() Snacks.picker.command_history() end, { desc = "Command History" })
     map("n", "<leader>n", function() Snacks.picker.notifications() end, { desc = "Notification History" })
-    map("n", "<leader>e", function() Snacks.explorer.reveal({ file = '%'}) end, { desc = "File Explorer" })
+    map("n", "<leader>e", function() Snacks.explorer.reveal({file = vim.fn.expand('%')}) end, { desc = "File Explorer" })
 
     -- find
     map("n", "<leader>fb", function() Snacks.picker.buffers() end, { desc = "Buffers" })
