@@ -49,9 +49,6 @@
 [merge]
   conflictStyle = diff3
 
-[include]
-  path = ~/.gitconfig.local
-
 [diff]
   tool = nvim_difftool
 
