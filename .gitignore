@@ -1,0 +1,5 @@
+# bare repo files
+/.cfg/
+
+# mac only
+.DS_Store
