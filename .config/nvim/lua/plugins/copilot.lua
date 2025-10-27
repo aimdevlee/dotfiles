@@ -20,6 +20,13 @@ return {
         markdown = true,
         yaml = true,
       },
+      copilot_node_command = {
+        'mise',
+        'exec',
+        'node@latest',
+        '--',
+        'node',
+      },
     },
   },
 }
