@@ -1,9 +1,7 @@
 return {
   'mrjones2014/smart-splits.nvim',
   config = function()
-    require('smart-splits').setup({
-      at_edge = 'stop',
-    })
+    require('smart-splits').setup()
 
     local keymap = vim.keymap
     -- move between pane in nvim or tmux or terminal multiplexer
@@ -13,4 +11,3 @@ return {
     keymap.set('n', '<C-l>', require('smart-splits').move_cursor_right, { desc = 'Move to Right Window (Tmux aware)' })
   end,
 }
-
