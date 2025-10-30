@@ -41,4 +41,4 @@ vim.o.timeoutlen = 500 -- Time to wait for key sequence (ms)
 vim.o.completeopt = 'menu,menuone,noselect' -- Always show menu, even for single match, don't auto-select
 vim.o.wildmode = 'longest:full,full'
 vim.o.winborder = 'rounded'
-vim.o.shortmess = 'aAOSTIWc'
+vim.o.shortmess = 'atoOTWAICF'
