@@ -1,28 +1,7 @@
-local library = vim.tbl_filter(function(d)
-  return not d:match(vim.fn.stdpath('config'))
-end, vim.api.nvim_get_runtime_file('', true))
-
 local servers = {
   eslint = {},
   tsgo = {},
-  lua_ls = {
-    runtime = {
-      version = 'LuaJIT',
-      path = { 'lua/?.lua', 'lua/?/init.lua' },
-    },
-    format = {
-      enable = false,
-    },
-    diagnostics = {
-      globals = { 'vim' },
-    },
-    workspace = {
-      checkThirdParty = false,
-      library = vim.tbl_extend('keep', {
-        '$VIMRUNTIME',
-      }, library),
-    },
-  },
+  lua_ls = {},
   ruby_lsp = {
     init_options = {
       formatter = 'auto',
@@ -59,7 +38,7 @@ local servers = {
 }
 
 for server_name, config in pairs(servers) do
-  if next(config) then
+  if not vim.tbl_isempty(config) then
     vim.lsp.config(server_name, config)
   end
 end
