@@ -13,16 +13,8 @@ return {
     notify_on_error = false,
     notify_no_formatters = false,
     format_on_save = function()
-      -- Don't format when minifiles is open, since that triggers the "confirm without
-      -- synchronization" message.
-      if vim.g.minifiles_active then
-        return nil
-      end
-
-      -- Skip formatting if triggered from my special save command.
-      if vim.g.skip_formatting then
-        vim.g.skip_formatting = false
-        return nil
+      if vim.g.disable_autoformat then
+        return
       end
 
       return {}

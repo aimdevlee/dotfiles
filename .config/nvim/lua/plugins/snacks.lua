@@ -168,6 +168,17 @@ return {
         Snacks.toggle.inlay_hints():map('<leader>th')
         Snacks.toggle.indent():map('<leader>ti')
         Snacks.toggle.dim():map('<leader>tD')
+        local format_on_save = Snacks.toggle.new({
+          id = 'format_on_save',
+          name = 'Format on save',
+          get = function()
+            return not vim.g.disable_autoformat
+          end,
+          set = function(state)
+            vim.g.disable_autoformat = not state
+          end,
+        })
+        format_on_save:map('<leader>tf')
       end,
     })
   end,
