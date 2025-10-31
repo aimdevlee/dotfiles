@@ -1,1 +1,0 @@
-/nix/store/fs48ff31gg14xjmkg4l66azhwvs7hsmw-home-manager-files/.config/ghostty/shaders/cursor-smear.glsl
