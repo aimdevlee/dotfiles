@@ -15,12 +15,6 @@ return {
       on_attach = function(bufnr)
         local gitsigns = require('gitsigns')
 
-        vim.b[bufnr].miniclue_config = {
-          clues = {
-            { mode = 'n', keys = '<leader>g', desc = '+git' },
-            { mode = 'x', keys = '<leader>g', desc = '+git' },
-          },
-        }
         local function map(mode, l, r, opts)
           opts = opts or {}
           opts.buffer = bufnr
