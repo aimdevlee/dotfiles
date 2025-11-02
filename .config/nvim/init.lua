@@ -19,6 +19,8 @@ require('options')
 require('keymaps')
 require('autocmds')
 require('lsp')
+require('winbar')
+require('statusline')
 
 -- require('plugins')
 -- Setup lazy.nvim
