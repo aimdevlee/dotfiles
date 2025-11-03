@@ -1,13 +1,49 @@
+---@type table<string, vim.lsp.Config>
 local servers = {
   eslint = {},
   tsgo = {},
-  lua_ls = {},
+  lua_ls = {
+    settings = {
+      Lua = {
+        completion = { callSnippet = 'Replace' },
+        -- Using stylua for formatting.
+        format = { enable = false },
+        hint = {
+          enable = true,
+          arrayIndex = 'Disable',
+        },
+        diagnostics = {
+          -- Get the language server to recognize the `vim` global
+          globals = { 'vim' },
+        },
+        runtime = {
+          -- Tell the language server which version of Lua you're using (most
+          -- likely LuaJIT in the case of Neovim)
+          version = 'LuaJIT',
+          -- Tell the language server how to find Lua modules same way as Neovim
+          -- (see `:h lua-module-load`)
+          path = {
+            'lua/?.lua',
+            'lua/?/init.lua',
+          },
+        },
+        -- Make the server aware of Neovim runtime files
+        workspace = {
+          checkThirdParty = false,
+          library = {
+            vim.env.VIMRUNTIME,
+            os.getenv('XDG_DATA_HOME') .. '/nvim/lazy/',
+          },
+        },
+      },
+    },
+  },
   ruby_lsp = {
     init_options = {
       formatter = 'auto',
     },
     capabilities = {
-      general = { positionEncodings = 'utf-16' },
+      general = { positionEncodings = { 'utf-16' } },
     },
   },
   sorbet = {
