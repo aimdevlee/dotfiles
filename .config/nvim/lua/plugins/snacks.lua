@@ -71,7 +71,7 @@ return {
 
     -- find
     {"<leader>fb", function() Snacks.picker.buffers() end,  desc = "Buffers" },
-    {"<leader>fc", function() Snacks.picker.files( {cwd = vim.fn.stdpath("config")})  end,{ desc = "Find Config File" },
+    {"<leader>fc", function() Snacks.picker.files( {cwd = vim.fn.stdpath("config")}) end, desc = "Find Config File" },
     {"<leader>ff", function() Snacks.picker.files() end,  desc = "Find Files" },
     {"<leader>fg", function() Snacks.picker.grep() end,  desc = "Grep" },
     {"<leader>fp", function() Snacks.picker.projects() end,  desc = "Projects" },
@@ -90,7 +90,7 @@ return {
     {"<leader>sb", function() Snacks.picker.lines() end,  desc = "Buffer Lines" },
     {"<leader>sB", function() Snacks.picker.grep_buffers() end,  desc = "Grep Open Buffers" },
     {"<leader>sg", function() Snacks.picker.grep() end,  desc = "Grep" },
-    {"x" }, "<leader>sw", function() Snacks.picker.grep_word() end,  desc = "Visual selection or word" },
+    {"<leader>sw", function() Snacks.picker.grep_word() end, mode = "x", desc = "Visual selection or word" },
     {'<leader>s"', function() Snacks.picker.registers() end,  desc = "Registers" },
     {'<leader>s/', function() Snacks.picker.search_history() end,  desc = "Search History" },
     {"<leader>sa", function() Snacks.picker.autocmds() end,  desc = "Autocmds" },
