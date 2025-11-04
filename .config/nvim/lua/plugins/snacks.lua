@@ -36,7 +36,7 @@ return {
         local excluded_filetypes = { 'markdown', 'wk' }
         return vim.g.snacks_indent ~= false
           and vim.b[buf].snacks_indent ~= false
-          and vim.tbl_contains(excluded_filetypes, vim.b[buf].buftype)
+          and not vim.tbl_contains(excluded_filetypes, vim.bo[buf].filetype)
       end,
     },
     input = { enabled = true },
