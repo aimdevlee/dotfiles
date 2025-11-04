@@ -71,6 +71,24 @@ function M.render()
     path = filepath .. '/'
   end
 
+  -- trim path by '/' if too long
+  local max_path_length = 30
+  if #path > max_path_length then
+    local parts = vim.split(path, '/')
+    local trimmed_parts = {}
+    local total_length = 0
+    for i = #parts, 1, -1 do
+      local part = parts[i]
+      total_length = total_length + #part + 1 -- +1 for '/'
+      if total_length > max_path_length then
+        table.insert(trimmed_parts, 1, '...')
+        break
+      end
+      table.insert(trimmed_parts, 1, part)
+    end
+    path = table.concat(trimmed_parts, '/')
+  end
+
   -- Build winbar string
   local result = '%='
   if path ~= '' then
