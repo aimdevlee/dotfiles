@@ -33,7 +33,7 @@ return {
         only_current = false,
       },
       filter = function(buf, win)
-        local excluded_filetypes = { 'markdown', 'wk' }
+        local excluded_filetypes = { 'markdown', 'wk', 'sidekick_terminal' }
         return vim.g.snacks_indent ~= false
           and vim.b[buf].snacks_indent ~= false
           and not vim.tbl_contains(excluded_filetypes, vim.bo[buf].filetype)

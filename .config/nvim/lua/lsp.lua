@@ -1,5 +1,6 @@
 ---@type table<string, vim.lsp.Config>
 local servers = {
+  copilot = {},
   eslint = {},
   tsgo = {},
   lua_ls = {
