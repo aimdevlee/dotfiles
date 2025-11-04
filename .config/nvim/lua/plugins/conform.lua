@@ -6,10 +6,6 @@ return {
   ---@module "conform"
   ---@type conform.setupOpts
   opts = {
-    init = function()
-      vim.o.formatexpr = "v:lua.require'conform'.formatexpr()"
-      vim.g.autoformat = true
-    end,
     notify_on_error = false,
     notify_no_formatters = false,
     format_on_save = function()
@@ -34,4 +30,8 @@ return {
       ['_'] = { 'trim_whitespace', 'trim_newlines' },
     },
   },
+  init = function()
+    vim.o.formatexpr = "v:lua.require'conform'.formatexpr()"
+    vim.g.autoformat = true
+  end,
 }
