@@ -43,7 +43,7 @@ return {
     },
     fuzzy = { implementation = 'prefer_rust_with_warning' },
     snippets = { preset = 'luasnip' },
-    cmdline = { enabled = false },
+    cmdline = { enabled = true },
     completion = {
       list = { selection = { auto_insert = false } },
       menu = {
