@@ -32,8 +32,7 @@ local servers = {
         workspace = {
           checkThirdParty = false,
           library = {
-            vim.env.VIMRUNTIME,
-            os.getenv('XDG_DATA_HOME') .. '/nvim/lazy/',
+            -- delegate to lazydev.nvim plugin
           },
         },
       },
