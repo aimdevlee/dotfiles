@@ -42,3 +42,4 @@ vim.o.completeopt = 'menu,menuone,noselect' -- Always show menu, even for single
 vim.o.wildmode = 'longest:full,full'
 vim.o.winborder = 'rounded'
 vim.o.shortmess = 'atoOTWAICF'
+vim.o.exrc = true
