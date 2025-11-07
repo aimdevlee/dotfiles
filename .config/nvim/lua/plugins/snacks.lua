@@ -33,7 +33,7 @@ return {
         only_current = false,
       },
       filter = function(buf, win)
-        local excluded_filetypes = { 'markdown', 'wk', 'sidekick_terminal' }
+        local excluded_filetypes = { 'markdown', 'wk', 'snacks_terminal', 'oil_preview' }
         return vim.g.snacks_indent ~= false
           and vim.b[buf].snacks_indent ~= false
           and not vim.tbl_contains(excluded_filetypes, vim.bo[buf].filetype)
@@ -127,7 +127,16 @@ return {
     {"<leader>S", function() Snacks.scratch.select() end,  desc = "Select Scratch Buffer" },
     {"<leader>n", function() Snacks.notifier.show_history() end,  desc = "Notification History" },
     {"<leader>cR", function() Snacks.rename.rename_file() end,  desc = "Rename File" },
-    { "<leader>gB", function() Snacks.gitbrowse() end,  desc = "Git Browse" },
+    { "<leader>gB", function()
+      -- Input branch to browse
+      vim.ui.input({ prompt = "Git Branch to browse: " }, function(input)
+        if input and input ~= "" then
+          Snacks.gitbrowse.open({ branch = input })
+        else
+          Snacks.notify("No branch provided", "error", { title = "Git Browse" })
+        end
+      end)
+    end,  desc = "Git Browse" },
     {"<leader>gg", function() Snacks.lazygit() end,  desc = "Lazygit" },
     {"<c-/>", function() Snacks.terminal() end,  desc = "Toggle Terminal" },
     -- stylua: ignore end
