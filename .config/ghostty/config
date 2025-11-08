@@ -11,8 +11,8 @@ custom-shader = shaders/cursor_warp.glsl
 font-family = PlemolJP Console NF
 font-family = NanumGothicCoding
 font-feature = -dlig
-font-size = 17
-adjust-cell-height = 12
+font-size = 16
+adjust-cell-height = 14
 title = " "
 
 keybind = super+shift+\=new_split:right
