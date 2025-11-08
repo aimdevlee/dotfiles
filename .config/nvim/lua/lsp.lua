@@ -105,5 +105,5 @@ vim.api.nvim_create_autocmd('LspAttach', {
   end,
 })
 
-vim.keymap.set('n', '<leader>li', ':LspInfo', { desc = 'Lsp Info' })
-vim.keymap.set('n', '<leader>ll', ':LspLog', { desc = 'Lsp Log' })
+vim.keymap.set('n', '<leader>li', ':LspInfo<cr>', { desc = 'Lsp Info' })
+vim.keymap.set('n', '<leader>ll', ':LspLog<cr>', { desc = 'Lsp Log' })
