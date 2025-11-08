@@ -1,8 +1,14 @@
--- Winbar module
-
 local M = {}
 
--- Configuration
+local DEFAULT_COLORS = {
+  normal = 0xc0caf5,
+  comment = 0x565f89,
+  string = 0x9ece6a,
+  warning = 0xe0af68,
+}
+
+local MAX_PATH_LENGTH = 30
+
 M.config = {
   excluded_filetypes = {
     'dashboard',
@@ -10,6 +16,7 @@ M.config = {
     'lazy',
     'mason',
     'help',
+    'oil',
   },
   excluded_buftypes = {
     'nofile',
@@ -18,111 +25,123 @@ M.config = {
   },
 }
 
--- Setup highlight groups
-local function setup_highlights()
-  local normal_fg = vim.api.nvim_get_hl(0, { name = 'Normal' }).fg
-  local comment_fg = vim.api.nvim_get_hl(0, { name = 'Comment' }).fg
-  local string_fg = vim.api.nvim_get_hl(0, { name = 'String' }).fg
-  local warning_fg = vim.api.nvim_get_hl(0, { name = 'WarningMsg' }).fg
-
-  -- Fallback colors
-  normal_fg = normal_fg or 0xc0caf5
-  comment_fg = comment_fg or 0x565f89
-  string_fg = string_fg or 0x9ece6a
-  warning_fg = warning_fg or 0xe0af68
-
-  vim.api.nvim_set_hl(0, 'WinBar', { bg = 'NONE', fg = normal_fg })
-  vim.api.nvim_set_hl(0, 'WinBarPath', { bg = 'NONE', fg = comment_fg, italic = true })
-  vim.api.nvim_set_hl(0, 'WinBarFilename', { bg = 'NONE', fg = string_fg, bold = true })
-  vim.api.nvim_set_hl(0, 'WinBarModified', { bg = 'NONE', fg = warning_fg, bold = true })
+local function get_hl_color(name, default)
+  return vim.api.nvim_get_hl(0, { name = name }).fg or default
 end
 
--- Check if current buffer should show winbar
-local function should_exclude()
-  -- Check if window is floating
+local function setup_highlights()
+  local colors = {
+    normal = get_hl_color('Normal', DEFAULT_COLORS.normal),
+    comment = get_hl_color('Comment', DEFAULT_COLORS.comment),
+    string = get_hl_color('String', DEFAULT_COLORS.string),
+    warning = get_hl_color('WarningMsg', DEFAULT_COLORS.warning),
+  }
+
+  local highlights = {
+    WinBar = { bg = 'NONE', fg = colors.normal },
+    WinBarPath = { bg = 'NONE', fg = colors.comment, italic = true },
+    WinBarFilename = { bg = 'NONE', fg = colors.string, bold = true },
+    WinBarModified = { bg = 'NONE', fg = colors.warning, bold = true },
+  }
+
+  for name, opts in pairs(highlights) do
+    vim.api.nvim_set_hl(0, name, opts)
+  end
+end
+
+local function is_floating_window()
   local win_config = vim.api.nvim_win_get_config(0)
-  if win_config.relative ~= '' then
+  return win_config.relative ~= ''
+end
+
+local function should_exclude()
+  if is_floating_window() then
     return true
   end
 
-  local filetype = vim.bo.filetype
-  local buftype = vim.bo.buftype
-
-  return vim.tbl_contains(M.config.excluded_filetypes, filetype)
-    or vim.tbl_contains(M.config.excluded_buftypes, buftype)
+  return vim.tbl_contains(M.config.excluded_filetypes, vim.bo.filetype)
+    or vim.tbl_contains(M.config.excluded_buftypes, vim.bo.buftype)
 end
 
--- Render winbar string (called via v:lua)
+local function trim_path(path)
+  if #path <= MAX_PATH_LENGTH then
+    return path
+  end
+
+  local parts = vim.split(path, '/')
+  local trimmed = {}
+  local length = 0
+
+  for i = #parts, 1, -1 do
+    length = length + #parts[i] + 1
+    if length > MAX_PATH_LENGTH then
+      table.insert(trimmed, 1, '...')
+      break
+    end
+    table.insert(trimmed, 1, parts[i])
+  end
+
+  return table.concat(trimmed, '/')
+end
+
+local function format_path(filepath)
+  if filepath == '.' then
+    return ''
+  end
+  return trim_path(filepath .. '/')
+end
+
+local function build_winbar_string(path, filename)
+  local parts = { '%=' }
+
+  if path ~= '' then
+    table.insert(parts, '%#WinBarPath#' .. path)
+  end
+
+  table.insert(parts, '%#WinBarFilename#' .. filename)
+  table.insert(parts, ' %#WinBarModified#%m')
+  table.insert(parts, '%=')
+
+  return table.concat(parts)
+end
+
 function M.render()
   if should_exclude() then
     return ''
   end
 
-  local filepath = vim.fn.expand('%:~:.:h')
   local filename = vim.fn.expand('%:t')
-
   if filename == '' then
-    return ''
+    return '%=%#WinBarFilename#[No Name]%='
   end
 
-  -- Clean up filepath
-  local path = ''
-  if filepath ~= '.' then
-    path = filepath .. '/'
-  end
+  local filepath = vim.fn.expand('%:~:.:h')
+  local path = format_path(filepath)
 
-  -- trim path by '/' if too long
-  local max_path_length = 30
-  if #path > max_path_length then
-    local parts = vim.split(path, '/')
-    local trimmed_parts = {}
-    local total_length = 0
-    for i = #parts, 1, -1 do
-      local part = parts[i]
-      total_length = total_length + #part + 1 -- +1 for '/'
-      if total_length > max_path_length then
-        table.insert(trimmed_parts, 1, '...')
-        break
-      end
-      table.insert(trimmed_parts, 1, part)
-    end
-    path = table.concat(trimmed_parts, '/')
-  end
-
-  -- Build winbar string
-  local result = '%='
-  if path ~= '' then
-    result = result .. '%#WinBarPath#' .. path
-  end
-  result = result .. '%#WinBarFilename#' .. (filename ~= '' and filename or '[No Name]')
-  result = result .. ' %#WinBarModified#%m'
-  result = result .. '%='
-
-  return result
+  return build_winbar_string(path, filename)
 end
 
--- Initialize
+local function setup_autocmds()
+  vim.api.nvim_create_autocmd('ColorScheme', {
+    group = vim.api.nvim_create_augroup('winbar_highlights', { clear = true }),
+    callback = setup_highlights,
+  })
+
+  vim.api.nvim_create_autocmd({ 'BufWinEnter', 'FileType' }, {
+    group = vim.api.nvim_create_augroup('winbar_render', { clear = true }),
+    callback = function()
+      local ok, win_config = pcall(vim.api.nvim_win_get_config, 0)
+      if ok and win_config.relative ~= '' then
+        vim.wo.winbar = nil
+        return
+      end
+
+      vim.wo.winbar = "%{%v:lua.require'winbar'.render()%}"
+    end,
+  })
+end
+
 setup_highlights()
-
--- Refresh highlights on colorscheme change
-vim.api.nvim_create_autocmd('ColorScheme', {
-  group = vim.api.nvim_create_augroup('winbar_highlights', { clear = true }),
-  callback = setup_highlights,
-})
-
--- Set winbar using v:lua expression
-vim.api.nvim_create_autocmd({ 'BufWinEnter', 'FileType' }, {
-  group = vim.api.nvim_create_augroup('winbar_render', { clear = true }),
-  callback = function()
-    -- Don't set winbar for floating windows
-    local ok, win_config = pcall(vim.api.nvim_win_get_config, 0)
-    if ok and win_config.relative ~= '' then
-      vim.wo.winbar = nil
-      return
-    end
-
-    vim.wo.winbar = "%{%v:lua.require'winbar'.render()%}"
-  end,
-})
+setup_autocmds()
 
 return M
