@@ -191,7 +191,6 @@ end
 -- Render diagnostic section
 local function render_diagnostics(counts)
   local result = ''
-  local has_diag = false
 
   local items = {
     { count = counts.error, hl = 'StatusLineDiagError' },
@@ -202,13 +201,8 @@ local function render_diagnostics(counts)
 
   for _, item in ipairs(items) do
     if item.count > 0 then
-      result = result .. string.format('%%#%s# %d ', item.hl, item.count)
-      has_diag = true
+      result = result .. string.format('%%#%s#%d', item.hl, item.count)
     end
-  end
-
-  if has_diag then
-    result = result .. '%#StatusLineInfo#│'
   end
 
   return result
@@ -222,14 +216,20 @@ function M.render()
 
   local components = {}
 
-  -- Left side: Mode
+  -- Left side
+
+  -- Mode
   local mode_str = get_mode_string()
   table.insert(components, string.format('%%#StatusLineMode# %s ', mode_str))
+
+  -- working directory
+  local cwd = vim.fn.fnamemodify(vim.fn.getcwd(), ':t')
+  table.insert(components, string.format('%%#StatusLineInfo#|  %s ', cwd))
 
   -- Git branch
   local branch = get_git_branch()
   if branch then
-    table.insert(components, string.format('%%#StatusLineInfo# %s ', branch))
+    table.insert(components, string.format('%%#StatusLineInfo# %s ', branch))
   end
 
   -- Center: Separator
@@ -240,21 +240,24 @@ function M.render()
   -- LSP clients
   local lsp = get_lsp_clients()
   if lsp then
-    table.insert(components, string.format('%%#StatusLineInfo#[%s] │', lsp))
+    table.insert(components, string.format('%%#StatusLineInfo#[%s]', lsp))
   end
 
   -- Search count
   local search = get_search_count()
   if search then
-    table.insert(components, string.format('%%#StatusLineInfo#%s │', search))
+    table.insert(components, string.format('%%#StatusLineInfo# | %s', search))
   end
 
   -- Diagnostics
   local diag_counts = get_diagnostic_counts()
-  table.insert(components, '%#StatusLineInfo#' .. render_diagnostics(diag_counts))
+  -- Only render if there are any diagnostics
+  if diag_counts.error > 0 or diag_counts.warn > 0 or diag_counts.info > 0 or diag_counts.hint > 0 then
+    table.insert(components, '%#StatusLineInfo# | ' .. render_diagnostics(diag_counts))
+  end
 
   -- Cursor position
-  table.insert(components, '%#StatusLineInfo# %l:%c │ %p%% ')
+  table.insert(components, '%#StatusLineInfo# | %l:%c | %p%% ')
 
   return table.concat(components)
 end
