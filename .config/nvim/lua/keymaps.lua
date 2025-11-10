@@ -81,3 +81,4 @@ map({ 'n' }, '<leader>xl', '<cmd>lopen<CR>', { desc = 'Open loclist', silent = t
 map({ 'n' }, '<leader>w', '<cmd>update<CR>', { desc = 'Write the current buffer.' })
 map({ 'n' }, '<leader>q', '<cmd>quit<CR>', { desc = 'Quit the current buffer.' })
 map({ 'n' }, '<leader>Q', '<cmd>wqa<CR>', { desc = 'Quit all buffers and write.' })
+map('n', '<M-CR>', 'i<cr><esc>-A', { desc = 'Insert line below and enter insert mode' })
