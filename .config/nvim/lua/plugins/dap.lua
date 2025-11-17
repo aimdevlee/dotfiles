@@ -1,16 +1,5 @@
 return {
   'mfussenegger/nvim-dap',
-  keys = {
-    -- stylua: ignore start
-    { '<space>dc', function() require('dap').continue() end, desc = 'DAP Continue' },
-    { '<space>dr', function() require('dap').repl.toggle() end, desc = 'DAP Toggle REPL' },
-    { '<space>db', function() require('dap').toggle_breakpoint() end, desc = 'DAP Toggle Breakpoint' },
-    { '<space>dso', function() require('dap').step_over() end, desc = 'DAP Step Over' },
-    { '<space>dsi', function() require('dap').step_into() end, desc = 'DAP Step Into' },
-    { '<space>drl', function() require('dap').run_last() end, desc = 'DAP Run Last' },
-    { '<space>dq', function() require('dap').terminate() end, desc = 'DAP Terminate' },
-    -- stylua: ignore end
-  },
   dependencies = {
     {
       'igorlfs/nvim-dap-view',
@@ -24,5 +13,40 @@ return {
       'theHamsta/nvim-dap-virtual-text',
       opts = { virt_text_pos = 'eol' },
     },
+    { 'jbyuki/one-small-step-for-vimkind' },
   },
+  config = function()
+    local dap = require('dap')
+
+    dap.configurations.lua = {
+      {
+        type = 'nlua',
+        request = 'attach',
+        name = 'Attach to running Neovim instance',
+      },
+    }
+
+    dap.adapters.nlua = function(callback, config)
+      callback({ type = 'server', host = config.host or '127.0.0.1', port = config.port or 8086 })
+    end
+
+    vim.keymap.set('n', '<leader>db', dap.toggle_breakpoint, { noremap = true })
+    vim.keymap.set('n', '<leader>dc', dap.continue, { noremap = true })
+    vim.keymap.set('n', '<leader>do', dap.step_over, { noremap = true })
+    vim.keymap.set('n', '<leader>di', dap.step_into, { noremap = true })
+
+    vim.keymap.set('n', '<leader>dl', function()
+      require('osv').launch({ port = 8086 })
+    end, { noremap = true })
+
+    vim.keymap.set('n', '<leader>dw', function()
+      local widgets = require('dap.ui.widgets')
+      widgets.hover()
+    end)
+
+    vim.keymap.set('n', '<leader>df', function()
+      local widgets = require('dap.ui.widgets')
+      widgets.centered_float(widgets.frames)
+    end)
+  end,
 }
