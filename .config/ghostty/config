@@ -8,6 +8,7 @@ cursor-style-blink = false
 shell-integration-features = no-cursor
 custom-shader-animation = true
 custom-shader = shaders/cursor_warp.glsl
+custom-shader = shaders/ripple_cursor.glsl
 font-family = PlemolJP Console NF
 font-family = NanumGothicCoding
 font-feature = -dlig
