@@ -4,8 +4,8 @@ local map = vim.keymap.set
 map({ 'n', 'x' }, 'j', "v:count == 0 ? 'gj' : 'j'", { desc = 'Down', expr = true, silent = true })
 map({ 'n', 'x' }, 'k', "v:count == 0 ? 'gk' : 'k'", { desc = 'Up', expr = true, silent = true })
 
-map({ 'n', 'x' }, 'Left', "v:count == 0 ? 'gj' : 'j'", { desc = 'Down', expr = true, silent = true })
-map({ 'n', 'x' }, 'Right', "v:count == 0 ? 'gk' : 'k'", { desc = 'Up', expr = true, silent = true })
+map({ 'n', 'x' }, '<Down>', "v:count == 0 ? 'gj' : 'j'", { desc = 'Down', expr = true, silent = true })
+map({ 'n', 'x' }, '<Up>', "v:count == 0 ? 'gk' : 'k'", { desc = 'Up', expr = true, silent = true })
 
 -- Move to window using the <ctrl> hjkl keys
 -- Note: Disabled in favor of smart-splits.nvim (Tmux-aware navigation)
@@ -14,10 +14,10 @@ map({ 'n', 'x' }, 'Right', "v:count == 0 ? 'gk' : 'k'", { desc = 'Up', expr = tr
 -- map('n', '<C-k>', '<C-w>k', { desc = 'Go to Upper Window', remap = true })
 -- map('n', '<C-l>', '<C-w>l', { desc = 'Go to Right Window', remap = true })
 
-map('n', '<C-Up>', '<cmd>resize +2<cr>', { desc = 'Increase Window Height' })
-map('n', '<C-Down>', '<cmd>resize -2<cr>', { desc = 'Decrease Window Height' })
-map('n', '<C-Left>', '<cmd>vertical resize -2<cr>', { desc = 'Decrease Window Width' })
-map('n', '<C-Right>', '<cmd>vertical resize +2<cr>', { desc = 'Increase Window Width' })
+-- map('n', '<C-Up>', '<cmd>resize +2<cr>', { desc = 'Increase Window Height' })
+-- map('n', '<C-Down>', '<cmd>resize -2<cr>', { desc = 'Decrease Window Height' })
+-- map('n', '<C-Left>', '<cmd>vertical resize -2<cr>', { desc = 'Decrease Window Width' })
+-- map('n', '<C-Right>', '<cmd>vertical resize +2<cr>', { desc = 'Increase Window Width' })
 
 map('n', '<A-j>', '<cmd>m .+1<cr>==', { desc = 'Move Line Down' })
 map('n', '<A-k>', '<cmd>m .-2<cr>==', { desc = 'Move Line Up' })
