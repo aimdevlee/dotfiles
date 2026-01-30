@@ -4,6 +4,9 @@ local map = vim.keymap.set
 map({ 'n', 'x' }, 'j', "v:count == 0 ? 'gj' : 'j'", { desc = 'Down', expr = true, silent = true })
 map({ 'n', 'x' }, 'k', "v:count == 0 ? 'gk' : 'k'", { desc = 'Up', expr = true, silent = true })
 
+map({ 'n', 'x' }, 'Left', "v:count == 0 ? 'gj' : 'j'", { desc = 'Down', expr = true, silent = true })
+map({ 'n', 'x' }, 'Right', "v:count == 0 ? 'gk' : 'k'", { desc = 'Up', expr = true, silent = true })
+
 -- Move to window using the <ctrl> hjkl keys
 -- Note: Disabled in favor of smart-splits.nvim (Tmux-aware navigation)
 -- map('n', '<C-h>', '<C-w>h', { desc = 'Go to Left Window', remap = true })
@@ -23,8 +26,17 @@ map('i', '<A-k>', '<esc>:m .-2<cr>==gi', { desc = 'Move Line Up' })
 map('v', '<A-j>', ":m '>+1<cr>gv=gv", { desc = 'Move Selection Down' })
 map('v', '<A-k>', ":m '<-2<cr>gv=gv", { desc = 'Move Selection Up' })
 
+map('n', '<A-Down>', '<cmd>m .+1<cr>==', { desc = 'Move Line Down' })
+map('n', '<A-Up>', '<cmd>m .-2<cr>==', { desc = 'Move Line Up' })
+map('i', '<A-Down>', '<esc>:m .+1<cr>==gi', { desc = 'Move Line Down' })
+map('i', '<A-Up>', '<esc>:m .-2<cr>==gi', { desc = 'Move Line Up' })
+map('v', '<A-Down>', ":m '>+1<cr>gv=gv", { desc = 'Move Selection Down' })
+map('v', '<A-Up>', ":m '<-2<cr>gv=gv", { desc = 'Move Selection Up' })
+
 map('n', '<S-h>', '<cmd>bprevious<cr>', { desc = 'Prev Buffer' })
 map('n', '<S-l>', '<cmd>bnext<cr>', { desc = 'Next Buffer' })
+map('n', '<S-Left>', '<cmd>bprevious<cr>', { desc = 'Prev Buffer' })
+map('n', '<S-Right>', '<cmd>bnext<cr>', { desc = 'Next Buffer' })
 map('n', '[b', '<cmd>bprevious<cr>', { desc = 'Prev Buffer' })
 map('n', '<leader>bd', '<cmd>bdelete<cr>', { desc = 'Delete Buffer' })
 map('n', ']b', '<cmd>bnext<cr>', { desc = 'Next Buffer' })
