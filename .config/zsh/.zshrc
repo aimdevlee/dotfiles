@@ -26,7 +26,7 @@ alias config='/usr/bin/git --git-dir=$HOME/.cfg/ --work-tree=$HOME'
 
 source <(fzf --zsh)
 eval "$(zoxide init zsh)"
-eval "$(oh-my-posh init zsh --config 'pure')"
+eval "$(oh-my-posh init zsh --config ~/.config/omp/pure.omp.json)"
 eval "$(direnv hook zsh)"
 eval "$(mise activate zsh)"
 
