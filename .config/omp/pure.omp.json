@@ -76,7 +76,7 @@
       "alignment": "left",
       "segments": [
         {
-          "options": {
+          "properties": {
             "always_enabled": true
           },
           "template": "❯ ",
