@@ -112,7 +112,7 @@ find_dirs() {
         fi
     done
 
-    printf '%s\n' "${current[@]}" "${has_session[@]}" "${no_session[@]}"
+    printf '%s\n' "${current[@]}" "${has_session[@]}" "${no_session[@]}" | sed "s|$HOME|~|g"
 }
 
 if [[ -n "$user_selected" ]]; then
@@ -125,8 +125,8 @@ if [[ -z $selected ]]; then
     exit 0
 fi
 
-# Strip prefix markers ([*], [+], or whitespace padding)
-selected=$(echo "$selected" | sed 's/^\[\*\] //;s/^\[+\] //;s/^    //')
+# Strip prefix markers ([*], [+], or whitespace padding) and restore home path
+selected=$(echo "$selected" | sed 's/^\[\*\] //;s/^\[+\] //;s/^    //' | sed "s|^~|$HOME|")
 
 selected_name=$(basename "$selected" | tr . _)
 
