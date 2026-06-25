@@ -9,7 +9,11 @@
                             {
                                 "from": {
                                     "key_code": "caps_lock",
-                                    "modifiers": { "optional": ["any"] }
+                                    "modifiers": {
+                                        "optional": [
+                                            "any"
+                                        ]
+                                    }
                                 },
                                 "to": [
                                     {
@@ -17,18 +21,53 @@
                                         "lazy": true
                                     }
                                 ],
-                                "to_if_alone": [{ "key_code": "escape" }],
+                                "to_if_alone": [
+                                    {
+                                        "key_code": "escape"
+                                    }
+                                ],
                                 "type": "basic"
                             }
                         ]
                     },
                     {
-                        "description": "[영어(US) 키보드용] 커맨드키만 눌렀을경우 언어전환.(좌측 커맨드키:영어, 우측 커맨드키:히라가나, 우측 커맨드키 더블클릭:한글)",
+                        "description": "Tap Left Control for ESC or Hold for Control",
+                        "manipulators": [
+                            {
+                                "from": {
+                                    "key_code": "left_control",
+                                    "modifiers": {
+                                        "optional": [
+                                            "any"
+                                        ]
+                                    }
+                                },
+                                "to": [
+                                    {
+                                        "key_code": "left_control",
+                                        "lazy": true
+                                    }
+                                ],
+                                "to_if_alone": [
+                                    {
+                                        "key_code": "escape"
+                                    }
+                                ],
+                                "type": "basic"
+                            }
+                        ]
+                    },
+                    {
+                        "description": "[영어(US) 키보드용] 커맨드키만 눌렀을경우 언어전환.(좌측 커맨드키:히라가나, 우측 커맨드키:영어, 우측 커맨드키 더블클릭:한글)",
                         "manipulators": [
                             {
                                 "from": {
                                     "key_code": "left_command",
-                                    "modifiers": { "optional": ["any"] }
+                                    "modifiers": {
+                                        "optional": [
+                                            "any"
+                                        ]
+                                    }
                                 },
                                 "to": [
                                     {
@@ -36,7 +75,11 @@
                                         "lazy": false
                                     }
                                 ],
-                                "to_if_alone": [{ "key_code": "japanese_eisuu" }],
+                                "to_if_alone": [
+                                    {
+                                        "key_code": "japanese_kana"
+                                    }
+                                ],
                                 "type": "basic"
                             },
                             {
@@ -49,12 +92,26 @@
                                 ],
                                 "from": {
                                     "key_code": "right_command",
-                                    "modifiers": { "optional": ["any"] }
+                                    "modifiers": {
+                                        "optional": [
+                                            "any"
+                                        ]
+                                    }
                                 },
                                 "to": [
                                     {
                                         "key_code": "spacebar",
-                                        "modifiers": ["left_control", "left_option"]
+                                        "modifiers": [
+                                            "left_control",
+                                            "left_option"
+                                        ]
+                                    },
+                                    {
+                                        "key_code": "spacebar",
+                                        "modifiers": [
+                                            "left_control",
+                                            "left_option"
+                                        ]
                                     }
                                 ],
                                 "type": "basic"
@@ -62,7 +119,11 @@
                             {
                                 "from": {
                                     "key_code": "right_command",
-                                    "modifiers": { "optional": ["any"] }
+                                    "modifiers": {
+                                        "optional": [
+                                            "any"
+                                        ]
+                                    }
                                 },
                                 "to": [
                                     {
@@ -94,8 +155,15 @@
                                         }
                                     ]
                                 },
-                                "to_if_alone": [{ "key_code": "japanese_kana" }],
-                                "type": "basic"
+                                "to_if_alone": [
+                                    {
+                                        "key_code": "japanese_eisuu"
+                                    }
+                                ],
+                                "type": "basic",
+                                "parameters": {
+                                    "basic.to_delayed_action_delay_milliseconds": 700
+                                }
                             }
                         ]
                     }
@@ -103,7 +171,9 @@
             },
             "name": "Default profile",
             "selected": true,
-            "virtual_hid_keyboard": { "keyboard_type_v2": "ansi" }
+            "virtual_hid_keyboard": {
+                "keyboard_type_v2": "ansi"
+            }
         }
     ]
 }
