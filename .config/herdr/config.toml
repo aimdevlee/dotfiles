@@ -143,13 +143,14 @@ command = "lazygit"
 width = "90%"
 height = "90%"
 
-# tmux: bind-key C-f display-popup -E "tmux-sessionizer"
-# tmux-sessionizer creates tmux sessions, which mean nothing under herdr.
-# This picks an existing worktree with fzf and opens it as a herdr workspace.
+# Create a workspace in a directory picked with fzf (zoxide frecency +
+# ~/Developer). The built-in new_workspace on prefix+shift+N still opens in the
+# current directory; this chooses the location up front instead.
 [[keys.command]]
-key = "prefix+ctrl+f"
+key = "prefix+ctrl+n"
 type = "popup"
-command = "sh /Users/dongbin-lee/.config/herdr/worktree-picker.sh"
+command = "sh /Users/dongbin-lee/.config/herdr/space-picker.sh"
+description = "new space in a picked directory"
 width = "80%"
 height = "60%"
 
@@ -311,6 +312,22 @@ accent = "#2ac3de"
 # [ui] key that follows a subtable would be parsed into that subtable instead.
 [ui.sidebar.agents.rows_by_agent]
 claude = [["state_icon", "workspace", "tab"], ["terminal_title_stripped"], ["agent"]]
+
+# Herdr has no separator or border option for the sidebar list; row_gap is the
+# only spacing control. Tried 1, kept 0 -- a blank line per space costs more
+# vertical room than the separation is worth once several worktrees are open.
+# Dimming the second row buys the same separation for free: the bright first
+# row reads as the entry boundary. It also mutes the branch, which on worktree
+# spaces is the label with a `dongbin-lee/` prefix and nothing else -- still
+# worth keeping for the main checkout, where it is the only sign of what is
+# checked out. Same placement reason as the subtable above: this has to follow
+# the bare `accent` key, not sit at the commented example further up.
+[ui.sidebar.spaces]
+row_gap = 0
+rows = [
+  ["state_icon", "workspace"],
+  [{ token = "branch", dim = true }, { token = "git_status", dim = true }],
+]
 
 # Background notification popup delivery
 [ui.toast]
