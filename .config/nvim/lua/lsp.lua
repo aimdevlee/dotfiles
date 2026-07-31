@@ -47,9 +47,9 @@ local servers = {
   },
   sorbet = {
     cmd = { 'bundle', 'exec', 'srb', 'typecheck', '--lsp' },
-    on_attach = function(client, _)
+    on_attach = function(client, bufnr)
       if client.server_capabilities.sorbetShowSymbolProvider then
-        vim.api.nvim_create_user_command('CopySymbolToClipboard', function()
+        vim.api.nvim_buf_create_user_command(bufnr, 'CopySymbolToClipboard', function()
           -- Get the current cursor position (1-based line, 0-based column)
           local line, col = unpack(vim.api.nvim_win_get_cursor(0))
           local params = {
@@ -58,14 +58,14 @@ local servers = {
             -- ref. https://github.com/sorbet/sorbet/blob/c73f3beb911f551e789210190c087006f46614f2/main/lsp/json_types.cc#L191
             position = { line = line - 1, character = col },
           }
-          local result = client.request_sync('sorbet/showSymbol', params, 3000)
+          -- Returns nil on timeout, which sorbet hits on large codebases.
+          local response = client:request_sync('sorbet/showSymbol', params, 3000, bufnr)
+          if not response or response.err or not response.result then
+            return
+          end
 
           -- copy symbol to clipboard
-          for _, response in pairs(result) do
-            if response.name then
-              vim.fn.setreg('+', response.name)
-            end
-          end
+          vim.fn.setreg('+', response.result.name)
         end, {})
       end
     end,
@@ -93,13 +93,13 @@ vim.api.nvim_create_autocmd('LspAttach', {
       if client:supports_method('textDocument/formatting') then
         vim.keymap.set('n', '<leader>lf', function()
           vim.lsp.buf.format({ async = true })
-        end, { desc = 'Format Buffer' })
+        end, { buffer = event.buf, desc = 'Format Buffer' })
       end
 
       if client:supports_method('textDocument/inlayHint') then
         vim.keymap.set('n', '<leader>lh', function()
           vim.lsp.inlay_hint.enable(not vim.lsp.inlay_hint.is_enabled({ bufnr = event.buf }), { bufnr = event.buf })
-        end, { desc = 'Toggle Inlay Hints' })
+        end, { buffer = event.buf, desc = 'Toggle Inlay Hints' })
       end
     end
   end,

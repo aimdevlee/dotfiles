@@ -57,7 +57,7 @@ vim.api.nvim_create_autocmd({ 'BufWritePre' }, {
 vim.api.nvim_create_autocmd('TextYankPost', {
   group = augroup('highlight_yank'),
   callback = function()
-    vim.highlight.on_yank({ timeout = 200 })
+    vim.hl.hl_op({ timeout = 200 })
   end,
 })
 
@@ -177,15 +177,17 @@ vim.api.nvim_create_autocmd('FileType', {
 vim.api.nvim_create_autocmd({ 'InsertEnter', 'InsertLeave' }, {
   group = augroup('relative_number_toggle'),
   callback = function(event)
+    -- The flag is global because the option it restores is too. A buffer-local
+    -- flag is lost when the buffer changes between InsertEnter and InsertLeave.
     if event.event == 'InsertEnter' then
       if vim.o.relativenumber then
         vim.o.relativenumber = false
-        vim.b.had_relativenumber = true
+        vim.g.had_relativenumber = true
       end
     else
-      if vim.b.had_relativenumber then
+      if vim.g.had_relativenumber then
         vim.o.relativenumber = true
-        vim.b.had_relativenumber = nil
+        vim.g.had_relativenumber = nil
       end
     end
   end,

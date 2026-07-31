@@ -56,13 +56,15 @@ return {
         end, { desc = 'Prev Hunk' })
 
         -- Actions
-        map('n', '<leader>ghs', gitsigns.stage_hunk, { desc = 'Stage Hunk' })
-        map('v', '<leader>ghs', function()
+        -- Toggles: on a staged sign this unstages instead, which is what
+        -- replaced the deprecated undo_stage_hunk(). Unlike that one, it is not
+        -- limited to hunks staged in the current session.
+        map('n', '<leader>ghs', gitsigns.stage_hunk, { desc = 'Stage/Unstage Hunk' })
+        map('x', '<leader>ghs', function()
           gitsigns.stage_hunk({ vim.fn.line('.'), vim.fn.line('v') })
-        end, { desc = 'Stage Hunk' })
-        map('n', '<leader>ghu', gitsigns.undo_stage_hunk, { desc = 'Undo Stage Hunk' })
+        end, { desc = 'Stage/Unstage Hunk' })
         map('n', '<leader>ghr', gitsigns.reset_hunk, { desc = 'Reset Hunk' })
-        map('v', '<leader>ghr', function()
+        map('x', '<leader>ghr', function()
           gitsigns.reset_hunk({ vim.fn.line('.'), vim.fn.line('v') })
         end, { desc = 'Reset Hunk' })
         map('n', '<leader>ghS', gitsigns.stage_buffer, { desc = 'Stage Buffer' })

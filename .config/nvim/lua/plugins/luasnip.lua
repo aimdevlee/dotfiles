@@ -15,7 +15,7 @@ return {
       '<C-s>',
       '"sc<cmd>lua require(\'luasnip.extras.otf\').on_the_fly("s")<CR>',
       desc = 'Insert on-the-fly snippet',
-      mode = 'v',
+      mode = 'x',
     },
   },
   config = function()

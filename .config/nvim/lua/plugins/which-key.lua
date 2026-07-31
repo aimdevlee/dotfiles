@@ -9,6 +9,7 @@ return {
       },
       spec = {
         { '<leader>c', group = '+code' },
+        { '<leader>d', group = '+debug' },
         { '<leader>f', group = '+file/find' },
         { '<leader>g', group = '+git' },
         { '<leader>gh', group = '+git hunk' },

@@ -8,7 +8,6 @@ return {
     dashboard = {
       enabled = true,
       preset = {
-        pick = 'fzf-lua',
         -- header = [[
         -- ]],
         keys = {
@@ -67,7 +66,6 @@ return {
     -- Top Pickers & Explorer
     {"<leader><space>", function() Snacks.picker.smart() end,  desc = "Smart Find Files" },
     {"<leader>:", function() Snacks.picker.command_history() end,  desc = "Command History" },
-    {"<leader>n", function() Snacks.picker.notifications() end,  desc = "Notification History" },
 
     -- find
     {"<leader>fb", function() Snacks.picker.buffers({ sort_lastused = false}) end,  desc = "Buffers" },

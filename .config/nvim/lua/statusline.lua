@@ -128,10 +128,13 @@ local function get_mode_string()
   return MODE_MAP[mode] or mode:upper()
 end
 
--- Get Git branch name
+-- Get Git branch name.
+-- Provided by gitsigns (`:h g:gitsigns_head`) so that rendering, which runs on
+-- every redraw, never spawns a subprocess. Falls back to the short commit hash
+-- on a detached HEAD.
 local function get_git_branch()
-  local branch = vim.fn.system("git branch --show-current 2>/dev/null | tr -d '\n'")
-  if vim.v.shell_error ~= 0 or branch == '' then
+  local branch = vim.g.gitsigns_head
+  if branch == nil or branch == '' then
     return nil
   end
   return branch

@@ -23,15 +23,18 @@ map('n', '<A-j>', '<cmd>m .+1<cr>==', { desc = 'Move Line Down' })
 map('n', '<A-k>', '<cmd>m .-2<cr>==', { desc = 'Move Line Up' })
 map('i', '<A-j>', '<esc>:m .+1<cr>==gi', { desc = 'Move Line Down' })
 map('i', '<A-k>', '<esc>:m .-2<cr>==gi', { desc = 'Move Line Up' })
-map('v', '<A-j>', ":m '>+1<cr>gv=gv", { desc = 'Move Selection Down' })
-map('v', '<A-k>', ":m '<-2<cr>gv=gv", { desc = 'Move Selection Up' })
+-- Visual-mode maps use 'x', not 'v': 'v' also covers Select mode, which is what
+-- LuaSnip puts you in on a placeholder that has default text. There, a keypress
+-- is supposed to replace the selection.
+map('x', '<A-j>', ":m '>+1<cr>gv=gv", { desc = 'Move Selection Down' })
+map('x', '<A-k>', ":m '<-2<cr>gv=gv", { desc = 'Move Selection Up' })
 
 map('n', '<A-Down>', '<cmd>m .+1<cr>==', { desc = 'Move Line Down' })
 map('n', '<A-Up>', '<cmd>m .-2<cr>==', { desc = 'Move Line Up' })
 map('i', '<A-Down>', '<esc>:m .+1<cr>==gi', { desc = 'Move Line Down' })
 map('i', '<A-Up>', '<esc>:m .-2<cr>==gi', { desc = 'Move Line Up' })
-map('v', '<A-Down>', ":m '>+1<cr>gv=gv", { desc = 'Move Selection Down' })
-map('v', '<A-Up>', ":m '<-2<cr>gv=gv", { desc = 'Move Selection Up' })
+map('x', '<A-Down>', ":m '>+1<cr>gv=gv", { desc = 'Move Selection Down' })
+map('x', '<A-Up>', ":m '<-2<cr>gv=gv", { desc = 'Move Selection Up' })
 
 map('n', '<S-h>', '<cmd>bprevious<cr>', { desc = 'Prev Buffer' })
 map('n', '<S-l>', '<cmd>bnext<cr>', { desc = 'Next Buffer' })
@@ -67,8 +70,8 @@ map('i', '.', '.<c-g>u')
 map('i', ';', ';<c-g>u')
 
 -- Better indenting (keep visual selection after indent)
-map('v', '<', '<gv')
-map('v', '>', '>gv')
+map('x', '<', '<gv')
+map('x', '>', '>gv')
 
 map('n', 'gco', 'o<esc>Vcx<esc>:normal gcc<cr>fxa<bs>', { desc = 'Add Comment Below' })
 map('n', 'gcO', 'O<esc>Vcx<esc>:normal gcc<cr>fxa<bs>', { desc = 'Add Comment Above' })
@@ -87,7 +90,7 @@ map('n', '<leader>yp', ":let @+=expand('%:.')<cr>", { desc = 'Copy relative path
 map('n', '<leader>yP', '<cmd>let @+=@%<cr>', { desc = 'Copy absolute path' })
 
 map({ 'n' }, '<leader>cx', '<cmd>.lua<cr>', { desc = 'Execute lua script' })
-map({ 'v', 'x' }, '<leader>cx', ":'<,'>.lua<cr>", { desc = 'Execute selected lua script' })
+map('x', '<leader>cx', ":'<,'>.lua<cr>", { desc = 'Execute selected lua script' })
 map({ 'n' }, '<leader>xq', '<cmd>copen<CR>', { desc = 'Open quickfix', silent = true })
 map({ 'n' }, '<leader>xl', '<cmd>lopen<CR>', { desc = 'Open loclist', silent = true })
 map({ 'n' }, '<leader>w', '<cmd>update<CR>', { desc = 'Write the current buffer.' })
