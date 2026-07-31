@@ -1,0 +1,55 @@
+id = "herdr-nvim-nav"
+name = "Vim Nav"
+version = "0.1.0"
+min_herdr_version = "0.7.0"
+description = "Ctrl+h/j/k/l across herdr panes and Neovim splits, without a per-key process for detection"
+platforms = ["macos", "linux"]
+
+# herdr has no conditional keybindings, so each direction is an action that makes
+# the choice tmux made with `if -F "#{@pane-is-vim}"`: hand the chord to Neovim
+# when it owns the focused pane, otherwise move herdr's pane focus.
+#
+# The "is this Neovim?" answer comes from a marker file that Neovim itself
+# maintains (see lua/plugins/tmux-navigator.lua), so no second process is needed
+# to find out. The action is a small C binary rather than a shell script for the
+# same reason: herdr has to fork/exec something (2.4ms here), and `sh` plus the
+# herdr binary added ~8ms on top of 0.3ms of actual socket work.
+#
+# Setup on a new machine. Neither the compiled binary nor herdr's plugins.json
+# is committed -- the former is a build artifact, the latter records absolute
+# paths -- so after cloning the dotfiles both steps are needed:
+#
+#   cd ~/.config/herdr/local-plugins/herdr-nvim-nav && cc -O2 -o herdr-nvim-nav herdr-nvim-nav.c
+#   herdr plugin link ~/.config/herdr/local-plugins/herdr-nvim-nav
+#
+# Editing herdr-nvim-nav.c needs only the rebuild. Editing this manifest needs the link
+# re-run (`herdr plugin unlink herdr-nvim-nav` first) for herdr to pick the change up;
+# `herdr server reload-config` re-reads config.toml, not plugin manifests.
+#
+# Keys are bound in ~/.config/herdr/config.toml as type = "plugin_action",
+# command = "herdr-nvim-nav.<id>". The Neovim half lives in
+# ~/.config/nvim/lua/plugins/tmux-navigator.lua.
+
+[[actions]]
+id = "left"
+title = "Navigate left"
+contexts = ["global"]
+command = ["./herdr-nvim-nav","left"]
+
+[[actions]]
+id = "down"
+title = "Navigate down"
+contexts = ["global"]
+command = ["./herdr-nvim-nav","down"]
+
+[[actions]]
+id = "up"
+title = "Navigate up"
+contexts = ["global"]
+command = ["./herdr-nvim-nav","up"]
+
+[[actions]]
+id = "right"
+title = "Navigate right"
+contexts = ["global"]
+command = ["./herdr-nvim-nav","right"]
