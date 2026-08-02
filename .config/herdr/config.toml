@@ -162,10 +162,11 @@ description = "open scratch terminal"
 width = "80%"
 height = "80%"
 
-# Local plugin at ~/.config/herdr/local-plugins/herdr-nvim-nav, attached with
-# `herdr plugin link`. Forwards the chord when Neovim owns the focused pane,
-# otherwise moves herdr's pane focus -- herdr's stand-in for tmux's
-# bind-key -n C-h if -F "#{@pane-is-vim}".
+# Installed from GitHub with `herdr plugin install aimdevlee/herdr-nvim-nav`.
+# herdr does not build the C action, so compile it once in the install dir:
+# `make` under `herdr plugin config-dir herdr-nvim-nav`'s sibling github/ dir.
+# Forwards the chord when Neovim owns the focused pane, otherwise moves herdr's
+# pane focus -- herdr's stand-in for tmux's bind-key -n C-h if -F "#{@pane-is-vim}".
 [[keys.command]]
 key = ["ctrl+h", "ctrl+left"]
 type = "plugin_action"
