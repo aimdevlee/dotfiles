@@ -114,32 +114,25 @@ return {
         return false
       end
 
-      local done, reached = false, false
-      local function finish(ok)
-        if done then
-          return
-        end
-        done, reached = true, ok
-        if not pipe:is_closing() then
-          pipe:close()
-        end
-      end
-
+      -- nil = still in flight; true/false = the reply arrived (or the connection
+      -- failed). vim.wait polls this until it stops being nil or we time out.
+      local reached = nil
       pipe:connect(HERDR_SOCKET, function(cerr)
         if cerr then
-          return finish(false)
+          reached = false
+        else
+          pipe:read_start(function(rerr, data)
+            reached = not rerr and data ~= nil
+          end)
+          pipe:write(FOCUS_PAYLOAD[dir])
         end
-        pipe:read_start(function(rerr, data)
-          finish(not rerr and data ~= nil)
-        end)
-        pipe:write(FOCUS_PAYLOAD[dir])
       end)
 
       vim.wait(SOCKET_TIMEOUT_MS, function()
-        return done
+        return reached ~= nil
       end, 1)
-      finish(false)
-      return reached
+      pipe:close()
+      return reached == true
     end
 
     local TMUX_DIR = { left = 'Left', down = 'Down', up = 'Up', right = 'Right' }
