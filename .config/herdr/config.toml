@@ -149,7 +149,7 @@ height = "90%"
 [[keys.command]]
 key = "prefix+ctrl+n"
 type = "popup"
-command = "sh /Users/dongbin-lee/.config/herdr/space-picker.sh"
+command = "sh ${XDG_CONFIG_HOME:-$HOME/.config}/herdr/space-picker.sh"
 description = "new space in a picked directory"
 width = "80%"
 height = "60%"
