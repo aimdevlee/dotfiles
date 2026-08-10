@@ -1,8 +1,68 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
-script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+script_dir=$(cd -- "$(/usr/bin/dirname -- "${BASH_SOURCE[0]}")" && pwd)
 # shellcheck source=lib.sh
 source "$script_dir/lib.sh"
+
+NVIM_TEMP_ROOT=
+TMUX_TEMP_ROOT=
+TMUX_EXECUTABLE=
+TMUX_SOCKET_NAME=
+TMUX_SERVER_STARTED=0
+
+resolve_executable() {
+  local resolved
+
+  resolved=$(command -v "$1" 2>/dev/null) || return 1
+  case $resolved in
+    /*) [[ -x $resolved ]] || return 1 ;;
+    *) return 1 ;;
+  esac
+  RESOLVED_EXECUTABLE=$resolved
+}
+
+cleanup_nvim_state() {
+  if [[ -n $NVIM_TEMP_ROOT && ${NVIM_TEMP_ROOT##*/} == dotfiles-check.nvim.* ]]; then
+    /bin/rm -rf -- "$NVIM_TEMP_ROOT"
+  fi
+  NVIM_TEMP_ROOT=
+}
+
+cleanup_tmux_state() {
+  if [[ $TMUX_SERVER_STARTED -eq 1 && -n $TMUX_EXECUTABLE && -n $TMUX_SOCKET_NAME && -n $TMUX_TEMP_ROOT ]]; then
+    /usr/bin/env -i \
+      HOME="$TMUX_TEMP_ROOT/home" \
+      XDG_CONFIG_HOME="$TMUX_TEMP_ROOT/config" \
+      XDG_STATE_HOME="$TMUX_TEMP_ROOT/state" \
+      XDG_CACHE_HOME="$TMUX_TEMP_ROOT/cache" \
+      ZDOTDIR="$TMUX_TEMP_ROOT/home" \
+      TMUX_TMPDIR="$TMUX_TEMP_ROOT/socket" \
+      SHELL=/bin/sh \
+      PATH=/usr/bin:/bin \
+      TERM=xterm-256color \
+      "$TMUX_EXECUTABLE" -L "$TMUX_SOCKET_NAME" kill-server >/dev/null 2>&1 || true
+  fi
+  TMUX_SERVER_STARTED=0
+  if [[ -n $TMUX_TEMP_ROOT && ${TMUX_TEMP_ROOT##*/} == dotfiles-check.tmux.* ]]; then
+    /bin/rm -rf -- "$TMUX_TEMP_ROOT"
+  fi
+  TMUX_TEMP_ROOT=
+  TMUX_EXECUTABLE=
+  TMUX_SOCKET_NAME=
+}
+
+cleanup_runtime_state() {
+  cleanup_tmux_state
+  cleanup_nvim_state
+}
+
+handle_signal() {
+  local status=$1
+
+  cleanup_runtime_state
+  trap - EXIT
+  exit "$status"
+}
 
 usage() {
   printf 'Usage: %s [--fetch | --help]\n' "${0##*/}"
@@ -22,8 +82,8 @@ canonical_file() {
   local path=$1
   local directory
 
-  directory=$(canonical_directory "$(dirname -- "$path")") || return 1
-  printf '%s/%s\n' "$directory" "$(basename -- "$path")"
+  directory=$(canonical_directory "$(/usr/bin/dirname -- "$path")") || return 1
+  printf '%s/%s\n' "$directory" "$(/usr/bin/basename -- "$path")"
 }
 
 controlled_config() (
@@ -33,7 +93,7 @@ controlled_config() (
   HOME=$DOTFILES_WORK_TREE
   XDG_CONFIG_HOME=$DOTFILES_WORK_TREE/.config
   export HOME XDG_CONFIG_HOME
-  command git config --global --includes --show-origin --get "$key" 2>/dev/null
+  /usr/bin/git config --global --includes --show-origin --get "$key" 2>/dev/null
 )
 
 read_local_config_value() {
@@ -57,7 +117,7 @@ read_local_config_value() {
 check_platform() {
   if [[ ${DOTFILES_SKIP_PLATFORM_CHECK:-0} == 1 ]]; then
     warn 'platform check skipped by explicit test override'
-  elif [[ $(uname -s 2>/dev/null) == Darwin && $(uname -m 2>/dev/null) == arm64 ]]; then
+  elif [[ $(/usr/bin/uname -s 2>/dev/null) == Darwin && $(/usr/bin/uname -m 2>/dev/null) == arm64 ]]; then
     pass 'platform is Darwin arm64'
   else
     fail_check 'platform must be Darwin arm64'
@@ -99,6 +159,9 @@ check_remote() {
   local fetch_requested=$1
   local origin_url
   local refspec
+  local branch
+  local upstream_remote
+  local upstream_merge
   local upstream
   local counts
   local ahead
@@ -118,8 +181,10 @@ check_remote() {
     fail_check 'origin fetch refspec is missing or unexpected'
   fi
 
-  upstream=$(dotgit rev-parse --verify --quiet '@{upstream}^{commit}' 2>/dev/null) || upstream=
-  if [[ -n $upstream ]]; then
+  branch=$(dotgit symbolic-ref --quiet --short HEAD 2>/dev/null) || branch=
+  upstream_remote=$(dotgit config --get "branch.$branch.remote" 2>/dev/null) || upstream_remote=
+  upstream_merge=$(dotgit config --get "branch.$branch.merge" 2>/dev/null) || upstream_merge=
+  if [[ -n $branch && -n $upstream_remote && -n $upstream_merge ]]; then
     pass 'upstream is configured'
   else
     fail_check 'upstream is missing'
@@ -133,6 +198,7 @@ check_remote() {
     fi
   fi
 
+  upstream=$(dotgit rev-parse --verify --quiet '@{upstream}^{commit}' 2>/dev/null) || upstream=
   if [[ -n $upstream ]]; then
     counts=$(dotgit rev-list --left-right --count 'HEAD...@{upstream}' 2>/dev/null) || counts=
     if [[ $counts == *$'\t'* ]]; then
@@ -142,6 +208,8 @@ check_remote() {
     else
       fail_check 'could not determine ahead and behind counts'
     fi
+  elif [[ -n $branch && -n $upstream_remote && -n $upstream_merge ]]; then
+    fail_check 'configured upstream ref is unavailable'
   fi
 }
 
@@ -221,12 +289,15 @@ check_identity_and_signing() {
   fi
   pass 'configured allowed signers file exists'
 
-  public_key_line=$(awk 'NF >= 2 && $1 !~ /^#/ { print $1 "\t" $2; exit }' "$signing_key" 2>/dev/null) || public_key_line=
+  public_key_line=$(/usr/bin/awk 'NF >= 2 && $1 !~ /^#/ { print $1 "\t" $2; exit }' "$signing_key" 2>/dev/null) || public_key_line=
   public_key_type=${public_key_line%%$'\t'*}
   public_key_data=${public_key_line#*$'\t'}
   if [[ -z $email || -z $public_key_type || -z $public_key_data || $public_key_line != *$'\t'* ]]; then
     fail_check 'public signing key is malformed'
-  elif awk -v expected_email="$email" -v expected_type="$public_key_type" -v expected_key="$public_key_data" '
+  elif /usr/bin/awk -v expected_email="$email" -v expected_type="$public_key_type" -v expected_key="$public_key_data" '
+    function supported_key_type(value) {
+      return value ~ /^(ssh-(rsa|dss|ed25519)(-cert-v01@openssh.com)?|ecdsa-sha2-[[:alnum:]-]+(-cert-v01@openssh.com)?|sk-ssh-ed25519(@openssh.com|-cert-v01@openssh.com)|sk-ecdsa-sha2-[[:alnum:]-]+(@openssh.com|-cert-v01@openssh.com))$/
+    }
     /^[[:space:]]*#/ || NF == 0 { next }
     {
       principal_count = split($1, principals, ",")
@@ -235,9 +306,12 @@ check_identity_and_signing() {
         if (principals[principal_index] == expected_email) principal_match = 1
       }
       for (field = 2; field < NF; field++) {
-        if (principal_match && $field == expected_type && $(field + 1) == expected_key) {
-          found = 1
-          exit
+        if (supported_key_type($field)) {
+          if (principal_match && $field == expected_type && $(field + 1) == expected_key) {
+            found = 1
+            exit
+          }
+          next
         }
       }
     }
@@ -275,7 +349,7 @@ check_syntax() {
     case $path in
       *.zsh|.zshenv|.zprofile|.zshrc|*/.zprofile|*/.zshrc)
         zsh_found=1
-        if ! have zsh || ! zsh -n "$DOTFILES_WORK_TREE/$path" >/dev/null 2>&1; then
+        if [[ ! -x /bin/zsh ]] || ! /bin/zsh -n "$DOTFILES_WORK_TREE/$path" >/dev/null 2>&1; then
           zsh_ok=0
         fi
         ;;
@@ -283,7 +357,7 @@ check_syntax() {
     case $path in
       *.sh|.config/dotfiles/check|.config/dotfiles/tests/run|.config/tmux-sessionizer/tmux-sessionizer|.local/bin/tmux-sessionizer)
         bash_found=1
-        if ! have bash || ! bash -n "$DOTFILES_WORK_TREE/$path" >/dev/null 2>&1; then
+        if [[ ! -x /bin/bash ]] || ! /bin/bash -n "$DOTFILES_WORK_TREE/$path" >/dev/null 2>&1; then
           bash_ok=0
         fi
         ;;
@@ -309,77 +383,99 @@ check_syntax() {
 }
 
 check_nvim() {
-  local temp_root
+  local nvim_executable
   local config_dir=$DOTFILES_WORK_TREE/.config/nvim
 
-  if ! have nvim; then
+  if ! resolve_executable nvim; then
     warn 'nvim is unavailable; skipped headless startup check'
     return
   fi
+  nvim_executable=$RESOLVED_EXECUTABLE
   if [[ ! -f $config_dir/init.lua ]]; then
     warn 'nvim config is unavailable; skipped headless startup check'
     return
   fi
 
-  temp_root=$(/usr/bin/mktemp -d "${TMPDIR:-/tmp}/dotfiles-check.nvim.XXXXXXXX") || {
+  NVIM_TEMP_ROOT=$(/usr/bin/mktemp -d "${TMPDIR:-/tmp}/dotfiles-check.nvim.XXXXXXXX") || {
     fail_check 'could not create isolated nvim state directory'
     return
   }
-  mkdir -p "$temp_root/home" "$temp_root/config" "$temp_root/cache" "$temp_root/data" "$temp_root/state"
-  /bin/ln -s "$config_dir" "$temp_root/config/nvim"
-  mkdir -p "$temp_root/data/nvim/lazy/lazy.nvim/lua/lazy"
+  /bin/mkdir -p "$NVIM_TEMP_ROOT/home" "$NVIM_TEMP_ROOT/config" "$NVIM_TEMP_ROOT/cache" \
+    "$NVIM_TEMP_ROOT/data" "$NVIM_TEMP_ROOT/state"
+  /bin/ln -s "$config_dir" "$NVIM_TEMP_ROOT/config/nvim"
+  /bin/mkdir -p "$NVIM_TEMP_ROOT/data/nvim/lazy/lazy.nvim/lua/lazy"
   printf '%s\n' \
     'local M = {}' \
     'function M.setup(_) end' \
-    'return M' > "$temp_root/data/nvim/lazy/lazy.nvim/lua/lazy/init.lua"
-  if HOME="$temp_root/home" \
-    XDG_CONFIG_HOME="$temp_root/config" \
-    XDG_CACHE_HOME="$temp_root/cache" \
-    XDG_DATA_HOME="$temp_root/data" \
-    XDG_STATE_HOME="$temp_root/state" \
-    nvim -i NONE --headless +qa >/dev/null 2>&1; then
+    'return M' > "$NVIM_TEMP_ROOT/data/nvim/lazy/lazy.nvim/lua/lazy/init.lua"
+  if /usr/bin/env -i \
+    HOME="$NVIM_TEMP_ROOT/home" \
+    XDG_CONFIG_HOME="$NVIM_TEMP_ROOT/config" \
+    XDG_CACHE_HOME="$NVIM_TEMP_ROOT/cache" \
+    XDG_DATA_HOME="$NVIM_TEMP_ROOT/data" \
+    XDG_STATE_HOME="$NVIM_TEMP_ROOT/state" \
+    PATH=/usr/bin:/bin \
+    TERM=xterm-256color \
+    "$nvim_executable" -i NONE --headless +qa >/dev/null 2>&1; then
     pass 'nvim starts headlessly with isolated state'
   else
     fail_check 'nvim headless startup failed'
   fi
-  /bin/rm -rf -- "$temp_root"
+  cleanup_nvim_state
 }
 
 check_tmux() {
-  local temp_root
-  local socket_name="dotfiles-check-$$"
+  local tmux_executable
+  local socket_name="dotfiles-check-$$-${RANDOM:-0}"
   local session_name="dotfiles-check-$$"
   local config_file=$DOTFILES_WORK_TREE/.config/tmux/tmux.conf
 
-  if ! have tmux; then
+  if ! resolve_executable tmux; then
     warn 'tmux is unavailable; skipped isolated startup check'
     return
   fi
+  tmux_executable=$RESOLVED_EXECUTABLE
   if [[ ! -f $config_file ]]; then
     warn 'tmux config is unavailable; skipped isolated startup check'
     return
   fi
 
-  temp_root=$(/usr/bin/mktemp -d "${TMPDIR:-/tmp}/dotfiles-check.tmux.XXXXXXXX") || {
+  TMUX_TEMP_ROOT=$(/usr/bin/mktemp -d "${TMPDIR:-/tmp}/dotfiles-check.tmux.XXXXXXXX") || {
     fail_check 'could not create isolated tmux state directory'
     return
   }
-  mkdir -p "$temp_root/home" "$temp_root/config"
-  if HOME="$temp_root/home" XDG_CONFIG_HOME="$temp_root/config" \
-    tmux -L "$socket_name" -f "$config_file" new-session -d -s "$session_name" >/dev/null 2>&1; then
+  TMUX_EXECUTABLE=$tmux_executable
+  TMUX_SOCKET_NAME=$socket_name
+  TMUX_SERVER_STARTED=1
+  /bin/mkdir -p "$TMUX_TEMP_ROOT/home" "$TMUX_TEMP_ROOT/config" "$TMUX_TEMP_ROOT/state" \
+    "$TMUX_TEMP_ROOT/cache" "$TMUX_TEMP_ROOT/socket"
+  if /usr/bin/env -i \
+    HOME="$TMUX_TEMP_ROOT/home" \
+    XDG_CONFIG_HOME="$TMUX_TEMP_ROOT/config" \
+    XDG_STATE_HOME="$TMUX_TEMP_ROOT/state" \
+    XDG_CACHE_HOME="$TMUX_TEMP_ROOT/cache" \
+    ZDOTDIR="$TMUX_TEMP_ROOT/home" \
+    TMUX_TMPDIR="$TMUX_TEMP_ROOT/socket" \
+    SHELL=/bin/sh \
+    PATH=/usr/bin:/bin \
+    TERM=xterm-256color \
+    "$tmux_executable" -L "$socket_name" -f "$config_file" new-session -d -s "$session_name" >/dev/null 2>&1; then
     pass 'tmux starts on an isolated socket'
   else
     fail_check 'tmux isolated startup failed'
   fi
-  HOME="$temp_root/home" XDG_CONFIG_HOME="$temp_root/config" \
-    tmux -L "$socket_name" kill-server >/dev/null 2>&1 || true
-  /bin/rm -rf -- "$temp_root"
+  cleanup_tmux_state
 }
 
 check_gitleaks() {
-  if ! have gitleaks; then
+  local gitleaks_executable
+
+  if ! resolve_executable gitleaks; then
     warn 'gitleaks is unavailable; skipped secret scan'
-  elif gitleaks git --no-banner --redact=100 --log-level warn "$DOTFILES_GIT_DIR"; then
+    return
+  fi
+  gitleaks_executable=$RESOLVED_EXECUTABLE
+  if PATH=/usr/bin:/bin "$gitleaks_executable" git --no-banner --redact=100 --log-level warn "$DOTFILES_GIT_DIR"; then
     pass 'gitleaks found no secrets'
   else
     fail_check 'gitleaks reported findings or could not complete'
@@ -388,6 +484,8 @@ check_gitleaks() {
 
 check_brewfile() {
   local brewfile=
+  local brew_executable
+  local brew_path
 
   if [[ -f $DOTFILES_WORK_TREE/Brewfile ]]; then
     brewfile=$DOTFILES_WORK_TREE/Brewfile
@@ -395,11 +493,15 @@ check_brewfile() {
     brewfile=$DOTFILES_WORK_TREE/.Brewfile
   fi
 
-  if ! have brew; then
+  if ! resolve_executable brew; then
     warn 'brew is unavailable; skipped Brewfile dependency check'
-  elif [[ -z $brewfile ]]; then
+    return
+  fi
+  brew_executable=$RESOLVED_EXECUTABLE
+  brew_path=${brew_executable%/*}:/usr/bin:/bin
+  if [[ -z $brewfile ]]; then
     warn 'Brewfile is unavailable; skipped dependency check'
-  elif HOMEBREW_NO_AUTO_UPDATE=1 brew bundle check --file="$brewfile" >/dev/null 2>&1; then
+  elif PATH="$brew_path" HOMEBREW_NO_AUTO_UPDATE=1 "$brew_executable" bundle check --file="$brewfile" >/dev/null 2>&1; then
     pass 'Brewfile dependencies are satisfied'
   else
     warn 'Brewfile dependencies are not fully satisfied'
@@ -431,6 +533,9 @@ main() {
   DOTFILES_WORK_TREE=${DOTFILES_WORK_TREE:-$HOME}
   export DOTFILES_GIT_DIR DOTFILES_WORK_TREE
   sanitize_git_environment
+  trap cleanup_runtime_state EXIT
+  trap 'handle_signal 130' INT
+  trap 'handle_signal 143' TERM
 
   check_platform
   if check_repository; then

@@ -27,7 +27,7 @@ dotgit() (
   unset GIT_CONFIG GIT_CONFIG_GLOBAL GIT_CONFIG_SYSTEM GIT_CONFIG_PARAMETERS GIT_CONFIG_COUNT
   export GIT_CONFIG_NOSYSTEM=1
   export GIT_OPTIONAL_LOCKS=0
-  command git \
+  /usr/bin/git \
     --git-dir="${DOTFILES_GIT_DIR:-$HOME/.cfg}" \
     --work-tree="${DOTFILES_WORK_TREE:-$HOME}" \
     "$@"
