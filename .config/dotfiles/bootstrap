@@ -40,7 +40,7 @@ fi
 
 # Do not allow ambient shell or Git configuration to alter security-sensitive
 # operations. Git is intentionally pinned; PATH remains minimal for Git's ssh.
-unset CDPATH ENV BASH_ENV
+unset CDPATH ENV BASH_ENV PERL5OPT PERL5LIB PERLLIB
 unset GIT_CONFIG GIT_CONFIG_SYSTEM GIT_CONFIG_PARAMETERS GIT_CONFIG_COUNT
 export PATH=/usr/bin:/bin
 export GIT_CONFIG_NOSYSTEM=1
@@ -53,6 +53,7 @@ git_cmd() {
 }
 
 [[ -x /usr/bin/git ]] || die '/usr/bin/git is required'
+[[ -x /usr/bin/perl ]] || die '/usr/bin/perl is required for atomic repository installation'
 
 if [[ ${DOTFILES_SKIP_PLATFORM_CHECK:-0} == 1 ]]; then
   warn 'platform check skipped by explicit test override'
@@ -118,6 +119,18 @@ path_is_equal_or_beneath() {
   esac
 }
 
+add_conflict() {
+  local candidate=$1
+  local existing
+
+  if [[ ${#conflicts[@]} -gt 0 ]]; then
+    for existing in "${conflicts[@]}"; do
+      [[ $existing == "$candidate" ]] && return 0
+    done
+  fi
+  conflicts+=("$candidate")
+}
+
 current_uid=$(/usr/bin/id -u) || die 'cannot determine current user'
 home_canonical=$(canonical_existing_directory "$HOME") || die 'HOME must be an existing non-symlink directory'
 work_tree_canonical=$(canonical_existing_directory "$DOTFILES_WORK_TREE") || die 'work tree must be an existing non-symlink directory'
@@ -153,12 +166,18 @@ git_parent=${git_dir_canonical%/*}
 git_base=${git_dir_canonical##*/}
 [[ -d $git_parent && ! -L $git_parent ]] || die 'Git directory parent must be an existing non-symlink directory'
 [[ $(/usr/bin/stat -f '%u' "$git_parent" 2>/dev/null) == "$current_uid" ]] || die 'Git directory parent must be owned by the current user'
+lock_dir=$git_parent/$git_base.bootstrap.lock
+lock_dir_canonical=$(canonical_planned_path "$lock_dir") || die 'cannot canonicalize bootstrap lock path'
+[[ $lock_dir == "$lock_dir_canonical" && ${lock_dir%/*} == "$git_parent" ]] || die 'bootstrap lock path is unsafe'
 
 CANDIDATE=
+CANDIDATE_EXPECTED_HEAD=
 MANIFEST=
 TEMP_BLOB=
 INSTALLED=0
 BACKUP_DIR=
+LOCK_OWNED=0
+LOCK_INODE=
 moved_paths=()
 
 cleanup_temporary() {
@@ -171,6 +190,13 @@ cleanup_temporary() {
   if [[ -n $CANDIDATE && $INSTALLED -eq 0 && -d $CANDIDATE && ${CANDIDATE%/*} == "$git_parent" && ${CANDIDATE##*/} == "$git_base.bootstrap."* ]]; then
     /bin/rm -rf -- "$CANDIDATE"
   fi
+  if [[ $LOCK_OWNED -eq 1 && -d $lock_dir && ! -L $lock_dir && ${lock_dir%/*} == "$git_parent" ]]; then
+    current_lock_inode=$(/usr/bin/stat -f '%i' "$lock_dir" 2>/dev/null || true)
+    if [[ -n $LOCK_INODE && $current_lock_inode == "$LOCK_INODE" ]]; then
+      /bin/rmdir -- "$lock_dir" 2>/dev/null || warn "owned bootstrap lock is not empty and was retained: $(quote_path "$lock_dir")"
+    fi
+  fi
+  LOCK_OWNED=0
 }
 
 handle_signal() {
@@ -183,6 +209,18 @@ handle_signal() {
 trap cleanup_temporary EXIT
 trap 'handle_signal 130' INT
 trap 'handle_signal 143' TERM
+
+if [[ $mode != dry-run ]]; then
+  if ! /bin/mkdir -- "$lock_dir" 2>/dev/null; then
+    die "another bootstrap holds the lock: $(quote_path "$lock_dir")"
+  fi
+  LOCK_OWNED=1
+  if ! LOCK_INODE=$(/usr/bin/stat -f '%i' "$lock_dir"); then
+    /bin/rmdir -- "$lock_dir" 2>/dev/null || true
+    LOCK_OWNED=0
+    die 'cannot identify owned bootstrap lock'
+  fi
+fi
 
 existing_repo=0
 repo_dir=
@@ -204,6 +242,7 @@ else
   fi
   [[ $(git_cmd --git-dir="$CANDIDATE" config --bool core.bare 2>/dev/null || true) == true ]] || die 'clone candidate is not bare'
   [[ $(git_cmd --git-dir="$CANDIDATE" config --get remote.origin.url 2>/dev/null || true) == "$DOTFILES_REMOTE" ]] || die 'clone candidate origin mismatch'
+  CANDIDATE_EXPECTED_HEAD=$(git_cmd --git-dir="$CANDIDATE" rev-parse --verify 'HEAD^{commit}' 2>/dev/null) || die 'clone candidate HEAD is invalid'
   repo_dir=$CANDIDATE
 fi
 
@@ -223,17 +262,60 @@ while IFS= read -r -d '' relative_path; do
   esac
 
   destination=$work_tree_canonical/$relative_path
-  destination_canonical=$(canonical_planned_path "$destination") || die "tracked destination escapes through an unsafe link: $(quote_path "$relative_path")"
-  [[ $destination == "$destination_canonical" ]] || die "tracked destination escapes through a symlink: $(quote_path "$relative_path")"
   case $destination in
     "$work_tree_canonical"/*) ;;
     *) die "tracked destination is outside work tree: $(quote_path "$relative_path")" ;;
   esac
-  if path_is_equal_or_beneath "$destination_canonical" "$git_dir_canonical"; then
+
+  obstruction=
+  ancestor_relative=${relative_path%/*}
+  if [[ $ancestor_relative != "$relative_path" ]]; then
+    remaining_ancestors=$ancestor_relative
+    current_ancestor=
+    while [[ -n $remaining_ancestors ]]; do
+      ancestor_component=${remaining_ancestors%%/*}
+      if [[ $remaining_ancestors == */* ]]; then
+        remaining_ancestors=${remaining_ancestors#*/}
+      else
+        remaining_ancestors=
+      fi
+      if [[ -n $current_ancestor ]]; then
+        current_ancestor=$current_ancestor/$ancestor_component
+      else
+        current_ancestor=$ancestor_component
+      fi
+      ancestor_path=$work_tree_canonical/$current_ancestor
+      if [[ -e $ancestor_path || -L $ancestor_path ]]; then
+        if [[ -d $ancestor_path && ! -L $ancestor_path ]]; then
+          continue
+        fi
+        obstruction=$current_ancestor
+        break
+      fi
+    done
+  fi
+
+  if [[ -n $obstruction ]]; then
+    destination_canonical=$destination
+  else
+    destination_canonical=$(canonical_planned_path "$destination") || die "tracked destination escapes through an unsafe link: $(quote_path "$relative_path")"
+    [[ $destination == "$destination_canonical" ]] || die "tracked destination escapes through a symlink: $(quote_path "$relative_path")"
+  fi
+  if path_is_equal_or_beneath "$destination_canonical" "$git_dir_canonical" || \
+    path_is_equal_or_beneath "$git_dir_canonical" "$destination_canonical"; then
     die "tracked destination overlaps the protected Git directory: $(quote_path "$relative_path")"
   fi
-  if path_is_equal_or_beneath "$destination_canonical" "$backup_root_canonical"; then
+  if path_is_equal_or_beneath "$destination_canonical" "$backup_root_canonical" || \
+    path_is_equal_or_beneath "$backup_root_canonical" "$destination_canonical"; then
     die "tracked destination overlaps the protected backup root: $(quote_path "$relative_path")"
+  fi
+  if path_is_equal_or_beneath "$destination_canonical" "$lock_dir_canonical" || \
+    path_is_equal_or_beneath "$lock_dir_canonical" "$destination_canonical"; then
+    die "tracked destination overlaps the protected bootstrap lock: $(quote_path "$relative_path")"
+  fi
+  if [[ -n $obstruction ]]; then
+    add_conflict "$obstruction"
+    continue
   fi
   [[ -e $destination || -L $destination ]] || continue
 
@@ -272,7 +354,7 @@ while IFS= read -r -d '' relative_path; do
       ;;
     *) die "unsupported tracked mode $tracked_mode: $(quote_path "$relative_path")" ;;
   esac
-  [[ $identical -eq 1 ]] || conflicts+=("$relative_path")
+  [[ $identical -eq 1 ]] || add_conflict "$relative_path"
 done < "$MANIFEST"
 /bin/rm -f -- "$MANIFEST"
 MANIFEST=
@@ -369,13 +451,53 @@ if [[ $existing_repo -eq 0 ]]; then
     print_recovery
     die 'final Git directory appeared during bootstrap; candidate was not installed'
   fi
-  if ! /bin/mv -n -- "$CANDIDATE" "$git_dir_canonical"; then
+  candidate_source=$CANDIDATE
+  candidate_leaf=${candidate_source##*/}
+  candidate_expected_inode=$(/usr/bin/stat -f '%i' "$candidate_source") || die 'cannot identify guarded clone candidate'
+  if ! /bin/mkdir -- "$git_dir_canonical" 2>/dev/null; then
     print_recovery
-    die 'cannot install guarded clone candidate'
+    die 'final Git directory appeared during atomic installation reservation'
   fi
-  [[ ! -e $CANDIDATE && ! -L $CANDIDATE ]] || {
+  if ! install_reservation_inode=$(/usr/bin/stat -f '%i' "$git_dir_canonical"); then
+    /bin/rmdir -- "$git_dir_canonical" 2>/dev/null || true
+    die 'cannot identify Git directory installation reservation'
+  fi
+  if [[ $(/usr/bin/stat -f '%i' "$git_dir_canonical" 2>/dev/null || true) != "$install_reservation_inode" ]]; then
     print_recovery
-    die 'final Git directory appeared during atomic candidate installation'
+    die 'Git directory installation reservation identity changed'
+  fi
+  if ! /usr/bin/perl -e 'rename($ARGV[0], $ARGV[1]) or die "$!\n"' "$candidate_source" "$git_dir_canonical"; then
+    current_install_inode=$(/usr/bin/stat -f '%i' "$git_dir_canonical" 2>/dev/null || true)
+    if [[ $current_install_inode == "$install_reservation_inode" ]]; then
+      /bin/rmdir -- "$git_dir_canonical" 2>/dev/null || true
+    fi
+    print_recovery
+    die 'atomic guarded clone candidate installation failed'
+  fi
+  [[ ! -e $candidate_source && ! -L $candidate_source ]] || die 'candidate source remained after atomic installation'
+  [[ $(/usr/bin/stat -f '%i' "$git_dir_canonical" 2>/dev/null || true) == "$candidate_expected_inode" ]] || {
+    print_recovery
+    die 'installed Git directory inode identity mismatch'
+  }
+  [[ ! -e $git_dir_canonical/$candidate_leaf && ! -L $git_dir_canonical/$candidate_leaf ]] || {
+    print_recovery
+    die 'nested clone candidate detected after atomic installation'
+  }
+  [[ -d $git_dir_canonical && ! -L $git_dir_canonical ]] || {
+    print_recovery
+    die 'installed Git directory is not a safe directory'
+  }
+  [[ $(git_cmd --git-dir="$git_dir_canonical" config --bool core.bare 2>/dev/null || true) == true ]] || {
+    print_recovery
+    die 'installed Git directory identity is not bare'
+  }
+  [[ $(git_cmd --git-dir="$git_dir_canonical" config --get remote.origin.url 2>/dev/null || true) == "$DOTFILES_REMOTE" ]] || {
+    print_recovery
+    die 'installed Git directory origin identity mismatch'
+  }
+  [[ $(git_cmd --git-dir="$git_dir_canonical" rev-parse --verify 'HEAD^{commit}' 2>/dev/null || true) == "$CANDIDATE_EXPECTED_HEAD" ]] || {
+    print_recovery
+    die 'installed Git directory HEAD identity mismatch'
   }
   CANDIDATE=
   INSTALLED=1

@@ -213,6 +213,104 @@ assert_absent "$outside_git_parent/.cfg with space"
 assert_eq '' "$(/usr/bin/find "$outside_state" -mindepth 1 -print -quit)" 'outside backup root unchanged'
 assert_eq "$outside_home_before" "$(snapshot_tree "$outside_home")" 'outside-root rejection leaves worktree unchanged'
 
+make_remote protected-root-ancestor
+/bin/rm -rf "$SOURCE/.local"
+printf 'tracked ancestor file\n' > "$SOURCE/.local"
+printf 'remote conflict\n' > "$SOURCE/conflict.txt"
+fixture_git -C "$SOURCE" add -A
+fixture_git -C "$SOURCE" commit -qm 'protected root ancestor path'
+fixture_git --git-dir="$REMOTE" fetch -q "$SOURCE" main:main
+protected_ancestor_home="$TEST_ROOT/protected-ancestor-home"
+/bin/mkdir "$protected_ancestor_home"
+printf 'local ancestor bytes\n' > "$protected_ancestor_home/.local"
+printf 'local conflict bytes\n' > "$protected_ancestor_home/conflict.txt"
+protected_ancestor_before=$(snapshot_tree "$protected_ancestor_home")
+run_bootstrap_with_paths "$protected_ancestor_home" "$REMOTE" "$protected_ancestor_home/.cfg" DEFAULT --yes
+[[ $BOOTSTRAP_STATUS -ne 0 ]] || fail 'tracked file above backup root must be rejected'
+assert_contains 'overlaps the protected backup root' "$BOOTSTRAP_OUTPUT" 'backup root ancestor overlap rejection'
+assert_eq "$protected_ancestor_before" "$(snapshot_tree "$protected_ancestor_home")" 'protected ancestor rejection moves nothing'
+assert_absent "$protected_ancestor_home/.cfg"
+[[ -z $(/usr/bin/find "$protected_ancestor_home" -maxdepth 1 -name '.cfg.bootstrap.*' -print -quit) ]] || fail 'protected ancestor rejection cleans candidate'
+
+make_remote ancestor-obstruction
+/bin/mkdir -p "$SOURCE/nested"
+printf 'first tracked descendant\n' > "$SOURCE/nested/first"
+printf 'second tracked descendant\n' > "$SOURCE/nested/second"
+fixture_git -C "$SOURCE" add .
+fixture_git -C "$SOURCE" commit -qm 'ancestor obstruction paths'
+fixture_git --git-dir="$REMOTE" fetch -q "$SOURCE" main:main
+ancestor_file_home="$TEST_ROOT/ancestor-file-home"
+/bin/mkdir "$ancestor_file_home"
+printf 'original ancestor bytes\n' > "$ancestor_file_home/nested"
+ancestor_file_before=$(snapshot_tree "$ancestor_file_home")
+run_bootstrap "$ancestor_file_home" "$REMOTE" --dry-run
+assert_eq 0 "$BOOTSTRAP_STATUS" 'ancestor file dry-run succeeds'
+assert_contains '/nested -> ' "$BOOTSTRAP_OUTPUT" 'dry-run prints obstructing ancestor conflict'
+assert_eq "$ancestor_file_before" "$(snapshot_tree "$ancestor_file_home")" 'ancestor dry-run changes nothing'
+run_bootstrap "$ancestor_file_home" "$REMOTE" --yes
+assert_eq 0 "$BOOTSTRAP_STATUS" "ancestor file conflict bootstrap succeeds: $BOOTSTRAP_OUTPUT"
+ancestor_file_backup=$(/usr/bin/find "$ancestor_file_home/.state/dotfiles/backups" -mindepth 1 -maxdepth 1 -type d | /usr/bin/head -1)
+assert_eq 'original ancestor bytes' "$(<"$ancestor_file_backup/nested")" 'ancestor file bytes retained once'
+assert_eq 'first tracked descendant' "$(<"$ancestor_file_home/nested/first")" 'first descendant checked out'
+assert_eq 'second tracked descendant' "$(<"$ancestor_file_home/nested/second")" 'second descendant checked out'
+assert_eq 1 "$(/usr/bin/find "$ancestor_file_home/.state/dotfiles/backups" -mindepth 1 -maxdepth 1 -type d | /usr/bin/wc -l | /usr/bin/tr -d ' ')" 'one deduplicated ancestor backup'
+run_bootstrap "$ancestor_file_home" "$REMOTE" --yes
+assert_eq 0 "$BOOTSTRAP_STATUS" 'ancestor file rerun is idempotent'
+assert_eq 1 "$(/usr/bin/find "$ancestor_file_home/.state/dotfiles/backups" -mindepth 1 -maxdepth 1 -type d | /usr/bin/wc -l | /usr/bin/tr -d ' ')" 'ancestor rerun creates no backup'
+
+ancestor_link_home="$TEST_ROOT/ancestor-link-home"
+ancestor_link_target="$TEST_ROOT/ancestor-link-target"
+/bin/mkdir "$ancestor_link_home" "$ancestor_link_target"
+printf 'outside target untouched\n' > "$ancestor_link_target/sentinel"
+/bin/ln -s "$ancestor_link_target" "$ancestor_link_home/nested"
+run_bootstrap "$ancestor_link_home" "$REMOTE" --yes
+assert_eq 0 "$BOOTSTRAP_STATUS" "ancestor symlink conflict bootstrap succeeds: $BOOTSTRAP_OUTPUT"
+ancestor_link_backup=$(/usr/bin/find "$ancestor_link_home/.state/dotfiles/backups" -mindepth 1 -maxdepth 1 -type d | /usr/bin/head -1)
+[[ -L $ancestor_link_backup/nested ]] || fail 'ancestor symlink itself is retained in backup'
+assert_eq "$ancestor_link_target" "$(/usr/bin/readlink "$ancestor_link_backup/nested")" 'ancestor symlink target retained'
+assert_eq 'outside target untouched' "$(<"$ancestor_link_target/sentinel")" 'ancestor symlink target is not mutated'
+assert_eq 'first tracked descendant' "$(<"$ancestor_link_home/nested/first")" 'symlink obstruction replaced by checked-out directory'
+
+make_remote cooperative-lock
+lock_home="$TEST_ROOT/lock-home"
+/bin/mkdir "$lock_home" "$lock_home/.cfg.bootstrap.lock"
+printf 'other process lock\n' > "$lock_home/.cfg.bootstrap.lock/owner"
+lock_before=$(snapshot_tree "$lock_home")
+run_bootstrap "$lock_home" "$REMOTE" --yes
+[[ $BOOTSTRAP_STATUS -ne 0 ]] || fail 'existing cooperative lock must reject bootstrap'
+assert_contains 'lock' "$BOOTSTRAP_OUTPUT" 'existing lock failure is clear'
+assert_eq "$lock_before" "$(snapshot_tree "$lock_home")" 'existing lock is untouched'
+assert_absent "$lock_home/.cfg"
+[[ -z $(/usr/bin/find "$lock_home" -maxdepth 1 -name '.cfg.bootstrap.*' ! -name '.cfg.bootstrap.lock' -print -quit) ]] || fail 'locked bootstrap creates no candidate'
+/bin/rm "$lock_home/.cfg.bootstrap.lock/owner"
+/bin/rmdir "$lock_home/.cfg.bootstrap.lock"
+run_bootstrap "$lock_home" "$REMOTE" --yes
+assert_eq 0 "$BOOTSTRAP_STATUS" 'one bootstrap proceeds after lock owner releases'
+assert_absent "$lock_home/.cfg.bootstrap.lock"
+
+make_remote candidate-race
+printf 'remote race bytes\n' > "$SOURCE/race-conflict"
+fixture_git -C "$SOURCE" add .
+fixture_git -C "$SOURCE" commit -qm 'candidate installation race fixture'
+fixture_git --git-dir="$REMOTE" fetch -q "$SOURCE" main:main
+race_home="$TEST_ROOT/race-home"
+/bin/mkdir "$race_home"
+printf 'local race bytes\n' > "$race_home/race-conflict"
+set +e
+( /bin/sleep 1; /bin/mkdir "$race_home/.cfg"; printf 'y\n' ) | \
+  /usr/bin/env -i HOME="$race_home" PATH=/usr/bin:/bin LC_ALL=C \
+    DOTFILES_REMOTE="$REMOTE" DOTFILES_GIT_DIR="$race_home/.cfg" DOTFILES_WORK_TREE="$race_home" \
+    XDG_STATE_HOME="$race_home/.state" DOTFILES_SKIP_PLATFORM_CHECK=1 \
+    "$bootstrap" > "$race_home.output" 2>&1
+race_status=$?
+set -e
+[[ $race_status -ne 0 ]] || fail 'candidate destination race must fail closed'
+assert_eq '' "$(/usr/bin/find "$race_home/.cfg" -mindepth 1 -print -quit)" 'candidate is never nested in raced Git directory'
+[[ -z $(/usr/bin/find "$race_home" -maxdepth 1 -name '.cfg.bootstrap.*' -print -quit) ]] || fail 'candidate race cleans candidate and lock'
+race_backup=$(/usr/bin/find "$race_home/.state/dotfiles/backups" -mindepth 1 -maxdepth 1 -type d | /usr/bin/head -1)
+assert_eq 'local race bytes' "$(<"$race_backup/race-conflict")" 'candidate race retains moved conflict backup'
+assert_contains "$race_backup" "$(/bin/cat "$race_home.output")" 'candidate race prints retained backup'
+
 make_remote conflicts
 printf 'upstream executable\n' > "$SOURCE/bin tool"
 /bin/chmod +x "$SOURCE/bin tool"
@@ -340,7 +438,8 @@ assert_contains "$failure_backup" "$BOOTSTRAP_OUTPUT" 'failed checkout prints ba
 assert_contains 'mv --' "$BOOTSTRAP_OUTPUT" 'failed checkout prints restoration command'
 
 hostile_home="$TEST_ROOT/hostile-home"
-/bin/mkdir -p "$hostile_home/hostile-bin" "$hostile_home/hostile-tmp;touch PWNED"
+/bin/mkdir -p "$hostile_home/hostile-bin" "$hostile_home/hostile-tmp;touch PWNED" "$hostile_home/perl-lib"
+printf '%s\n' 'BEGIN { open my $fh, ">", $ENV{DOTFILES_TEST_PERL_MARKER}; }' '1;' > "$hostile_home/perl-lib/Hostile.pm"
 printf '[core]\n  hooksPath = %s\n[alias]\n  clone = !touch %s\n' "$hostile_home/hooks" "$hostile_home/ambient-pwned" > "$hostile_home/.gitconfig"
 /bin/mkdir "$hostile_home/hooks"
 printf '#!/bin/bash\ntouch %q\n' "$hostile_home/hook-pwned" > "$hostile_home/hooks/post-checkout"
@@ -348,7 +447,7 @@ printf '#!/bin/bash\ntouch %q\n' "$hostile_home/hook-pwned" > "$hostile_home/hoo
 printf '#!/bin/bash\ntouch %q\nexit 99\n' "$hostile_home/path-pwned" > "$hostile_home/hostile-bin/git"
 /bin/chmod +x "$hostile_home/hostile-bin/git"
 set +e
-/usr/bin/env -i HOME="$hostile_home" PATH="$hostile_home/hostile-bin:/usr/bin:/bin" LC_ALL=C TMPDIR="$hostile_home/hostile-tmp;touch PWNED" DOTFILES_REMOTE="$REMOTE" DOTFILES_GIT_DIR="$hostile_home/.cfg" DOTFILES_WORK_TREE="$hostile_home" XDG_STATE_HOME="$hostile_home/.state" DOTFILES_SKIP_PLATFORM_CHECK=1 "$bootstrap" --yes > "$hostile_home.output" 2>&1
+/usr/bin/env -i HOME="$hostile_home" PATH="$hostile_home/hostile-bin:/usr/bin:/bin" LC_ALL=C TMPDIR="$hostile_home/hostile-tmp;touch PWNED" PERL5LIB="$hostile_home/perl-lib" PERL5OPT=-MHostile DOTFILES_TEST_PERL_MARKER="$hostile_home/perl-pwned" DOTFILES_REMOTE="$REMOTE" DOTFILES_GIT_DIR="$hostile_home/.cfg" DOTFILES_WORK_TREE="$hostile_home" XDG_STATE_HOME="$hostile_home/.state" DOTFILES_SKIP_PLATFORM_CHECK=1 "$bootstrap" --yes > "$hostile_home.output" 2>&1
 hostile_status=$?
 set -e
 assert_eq 0 "$hostile_status" 'hostile ambient environment is ignored'
@@ -356,6 +455,7 @@ assert_absent "$hostile_home/path-pwned"
 assert_absent "$hostile_home/hook-pwned"
 assert_absent "$hostile_home/ambient-pwned"
 assert_absent "$hostile_home/PWNED"
+assert_absent "$hostile_home/perl-pwned"
 
 signal_home="$TEST_ROOT/signal-home"
 /bin/mkdir "$signal_home"
