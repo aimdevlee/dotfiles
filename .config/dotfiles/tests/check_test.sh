@@ -485,7 +485,7 @@ assert_zero "$CHECK_STATUS" 'optional tool success and warning checks'
 assert_file_absent "$malicious_zdot_marker" 'tmux startup executed inherited malicious ZDOTDIR'
 optional_log=$(cat "$optional_fixture/optional-tools.log")
 assert_contains 'nvim|-i NONE --headless +qa' "$optional_log" 'nvim isolated invocation'
-assert_contains 'tmux|-L dotfiles-check-' "$optional_log" 'tmux isolated socket invocation'
+assert_contains 'tmux|-S /tmp/dc-tmux.' "$optional_log" 'tmux explicit short socket invocation'
 assert_contains 'new-session -d -s dotfiles-check-' "$optional_log" 'tmux detached session invocation'
 assert_contains 'kill-server' "$optional_log" 'tmux cleanup invocation'
 assert_contains 'SHELL=/bin/sh' "$optional_log" 'tmux controlled shell environment'
@@ -494,14 +494,40 @@ assert_contains 'TMUX_TMPDIR=' "$optional_log" 'tmux isolated socket directory e
 nvim_home=$(/usr/bin/awk -F'|' '$1 == "nvim" { sub(/^HOME=/, "", $3); print $3; exit }' "$optional_fixture/optional-tools.log")
 tmux_home=$(/usr/bin/awk -F'|' '$1 == "tmux" && $2 ~ /new-session/ { sub(/^HOME=/, "", $3); print $3; exit }' \
   "$optional_fixture/optional-tools.log")
+tmux_socket=$(/usr/bin/awk -F'|' '$1 == "tmux" && $2 ~ /new-session/ { split($2, args, " "); print args[2]; exit }' \
+  "$optional_fixture/optional-tools.log")
+[[ $tmux_socket == /tmp/dc-tmux.*/s ]] || fail "tmux socket is not rooted in a guarded short /tmp directory: [$tmux_socket]"
+[[ ${#tmux_socket} -lt 100 ]] || fail "tmux socket path is too long: [${#tmux_socket}]"
 assert_file_absent "${nvim_home%/home}" 'nvim isolated state cleanup'
 assert_file_absent "${tmux_home%/home}" 'tmux isolated state cleanup'
+assert_file_absent "${tmux_socket%/s}" 'tmux short socket directory cleanup'
 assert_contains 'trap cleanup_runtime_state EXIT' "$(cat "$check_script")" 'EXIT cleanup trap structure'
 assert_contains "trap 'handle_signal 130' INT" "$(cat "$check_script")" 'INT cleanup trap structure'
 assert_contains "trap 'handle_signal 143' TERM" "$(cat "$check_script")" 'TERM cleanup trap structure'
 assert_contains "gitleaks|git --no-banner --redact=100 --log-level warn $optional_fixture/home/.cfg" "$optional_log" 'gitleaks redacted invocation'
 assert_contains "brew|1|bundle check --file=$optional_fixture/home/.Brewfile" "$optional_log" 'brew no-update invocation'
 assert_contains 'WARN: Brewfile dependencies are not fully satisfied' "$CHECK_OUTPUT" 'unsatisfied Brewfile warning'
+
+real_tmux=
+for candidate in /opt/homebrew/bin/tmux /usr/local/bin/tmux /usr/bin/tmux; do
+  if [[ -x $candidate ]]; then
+    real_tmux=$candidate
+    break
+  fi
+done
+if [[ -n $real_tmux ]]; then
+  make_fixture real-tmux-long-tmp
+  real_tmux_fixture=$FIXTURE
+  ln -sf "$real_tmux" "$real_tmux_fixture/bin/tmux"
+  long_tmux_tmp="$TEST_ROOT/long-macos-style-tmp/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  mkdir -p "$long_tmux_tmp"
+  short_tmux_before=$(/usr/bin/find /tmp -maxdepth 1 -type d -name 'dc-tmux.*' -print | LC_ALL=C sort)
+  DOTFILES_TEST_TMPDIR="$long_tmux_tmp" run_check "$real_tmux_fixture"
+  assert_zero "$CHECK_STATUS" 'real tmux with long macOS TMPDIR check'
+  assert_contains 'PASS: tmux starts on an isolated socket' "$CHECK_OUTPUT" 'real tmux startup result'
+  short_tmux_after=$(/usr/bin/find /tmp -maxdepth 1 -type d -name 'dc-tmux.*' -print | LC_ALL=C sort)
+  assert_eq "$short_tmux_before" "$short_tmux_after" 'real tmux left a short socket directory'
+fi
 
 make_fixture "wrapper-'; : > wrapper-injected; #"
 wrapper_injection_fixture=$FIXTURE

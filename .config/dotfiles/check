@@ -6,8 +6,9 @@ source "$script_dir/lib.sh"
 
 NVIM_TEMP_ROOT=
 TMUX_TEMP_ROOT=
+TMUX_SHORT_ROOT=
 TMUX_EXECUTABLE=
-TMUX_SOCKET_NAME=
+TMUX_SOCKET_PATH=
 TMUX_SERVER_STARTED=0
 
 resolve_executable() {
@@ -22,33 +23,50 @@ resolve_executable() {
 }
 
 cleanup_nvim_state() {
-  if [[ -n $NVIM_TEMP_ROOT && ${NVIM_TEMP_ROOT##*/} == dotfiles-check.nvim.* ]]; then
+  if owned_temp_dir "$NVIM_TEMP_ROOT" dotfiles-check.nvim.; then
     /bin/rm -rf -- "$NVIM_TEMP_ROOT"
   fi
   NVIM_TEMP_ROOT=
 }
 
+owned_temp_dir() {
+  local path=$1
+  local prefix=$2
+  local owner
+  local current_user
+
+  [[ -n $path && -d $path && ${path##*/} == "$prefix"* ]] || return 1
+  owner=$(/usr/bin/stat -f '%u' "$path" 2>/dev/null) || return 1
+  current_user=$(/usr/bin/id -u) || return 1
+  [[ $owner == "$current_user" ]]
+}
+
 cleanup_tmux_state() {
-  if [[ $TMUX_SERVER_STARTED -eq 1 && -n $TMUX_EXECUTABLE && -n $TMUX_SOCKET_NAME && -n $TMUX_TEMP_ROOT ]]; then
+  if [[ $TMUX_SERVER_STARTED -eq 1 && -n $TMUX_EXECUTABLE && -n $TMUX_SOCKET_PATH && -n $TMUX_TEMP_ROOT ]] && \
+    owned_temp_dir "$TMUX_SHORT_ROOT" dc-tmux.; then
     /usr/bin/env -i \
       HOME="$TMUX_TEMP_ROOT/home" \
       XDG_CONFIG_HOME="$TMUX_TEMP_ROOT/config" \
       XDG_STATE_HOME="$TMUX_TEMP_ROOT/state" \
       XDG_CACHE_HOME="$TMUX_TEMP_ROOT/cache" \
       ZDOTDIR="$TMUX_TEMP_ROOT/home" \
-      TMUX_TMPDIR="$TMUX_TEMP_ROOT/socket" \
+      TMUX_TMPDIR="$TMUX_SHORT_ROOT" \
       SHELL=/bin/sh \
       PATH=/usr/bin:/bin \
       TERM=xterm-256color \
-      "$TMUX_EXECUTABLE" -L "$TMUX_SOCKET_NAME" kill-server >/dev/null 2>&1 || true
+      "$TMUX_EXECUTABLE" -S "$TMUX_SOCKET_PATH" kill-server >/dev/null 2>&1 || true
   fi
   TMUX_SERVER_STARTED=0
-  if [[ -n $TMUX_TEMP_ROOT && ${TMUX_TEMP_ROOT##*/} == dotfiles-check.tmux.* ]]; then
+  if owned_temp_dir "$TMUX_TEMP_ROOT" dotfiles-check.tmux.; then
     /bin/rm -rf -- "$TMUX_TEMP_ROOT"
   fi
+  if [[ $TMUX_SHORT_ROOT == /tmp/dc-tmux.* ]] && owned_temp_dir "$TMUX_SHORT_ROOT" dc-tmux.; then
+    /bin/rm -rf -- "$TMUX_SHORT_ROOT"
+  fi
   TMUX_TEMP_ROOT=
+  TMUX_SHORT_ROOT=
   TMUX_EXECUTABLE=
-  TMUX_SOCKET_NAME=
+  TMUX_SOCKET_PATH=
 }
 
 cleanup_runtime_state() {
@@ -426,7 +444,6 @@ check_nvim() {
 
 check_tmux() {
   local tmux_executable
-  local socket_name="dotfiles-check-$$-${RANDOM:-0}"
   local session_name="dotfiles-check-$$"
   local config_file=$DOTFILES_WORK_TREE/.config/tmux/tmux.conf
 
@@ -444,22 +461,37 @@ check_tmux() {
     fail_check 'could not create isolated tmux state directory'
     return
   }
+  TMUX_SHORT_ROOT=$(/usr/bin/mktemp -d /tmp/dc-tmux.XXXXXXXX) || {
+    fail_check 'could not create short tmux socket directory'
+    cleanup_tmux_state
+    return
+  }
+  if [[ $TMUX_SHORT_ROOT != /tmp/dc-tmux.* ]] || ! owned_temp_dir "$TMUX_SHORT_ROOT" dc-tmux.; then
+    fail_check 'short tmux socket directory is outside the guarded scope'
+    cleanup_tmux_state
+    return
+  fi
+  TMUX_SOCKET_PATH=$TMUX_SHORT_ROOT/s
+  if [[ ${#TMUX_SOCKET_PATH} -ge 100 ]]; then
+    fail_check 'short tmux socket path exceeds the safe length'
+    cleanup_tmux_state
+    return
+  fi
   TMUX_EXECUTABLE=$tmux_executable
-  TMUX_SOCKET_NAME=$socket_name
   TMUX_SERVER_STARTED=1
   /bin/mkdir -p "$TMUX_TEMP_ROOT/home" "$TMUX_TEMP_ROOT/config" "$TMUX_TEMP_ROOT/state" \
-    "$TMUX_TEMP_ROOT/cache" "$TMUX_TEMP_ROOT/socket"
+    "$TMUX_TEMP_ROOT/cache"
   if /usr/bin/env -i \
     HOME="$TMUX_TEMP_ROOT/home" \
     XDG_CONFIG_HOME="$TMUX_TEMP_ROOT/config" \
     XDG_STATE_HOME="$TMUX_TEMP_ROOT/state" \
     XDG_CACHE_HOME="$TMUX_TEMP_ROOT/cache" \
     ZDOTDIR="$TMUX_TEMP_ROOT/home" \
-    TMUX_TMPDIR="$TMUX_TEMP_ROOT/socket" \
+    TMUX_TMPDIR="$TMUX_SHORT_ROOT" \
     SHELL=/bin/sh \
     PATH=/usr/bin:/bin \
     TERM=xterm-256color \
-    "$tmux_executable" -L "$socket_name" -f "$config_file" new-session -d -s "$session_name" >/dev/null 2>&1; then
+    "$tmux_executable" -S "$TMUX_SOCKET_PATH" -f "$config_file" new-session -d -s "$session_name" >/dev/null 2>&1; then
     pass 'tmux starts on an isolated socket'
   else
     fail_check 'tmux isolated startup failed'
