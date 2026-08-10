@@ -105,4 +105,55 @@ if DOTFILES_GIT_DIR="$ambient_work_tree/.git" \
 fi
 cleanup_test_root
 
+copy_zsh_startup_fixture() {
+  local fixture_home=$1
+  local missing_brew=$2
+
+  mkdir -p "$fixture_home/.config/zsh" "$fixture_home/.cache" "$fixture_home/.local/share" "$fixture_home/.local/state"
+  cp "$expected_work_tree/.zshenv" "$fixture_home/.zshenv"
+  sed "s|/opt/homebrew/bin/brew|$missing_brew|g" \
+    "$expected_work_tree/.config/zsh/.zprofile" > "$fixture_home/.config/zsh/.zprofile"
+  cp "$expected_work_tree/.config/zsh/.zshrc" "$fixture_home/.config/zsh/.zshrc"
+}
+
+run_isolated_zsh_startup() {
+  local fixture_home=$1
+  local stdout_file=$2
+  local stderr_file=$3
+  local command=$4
+
+  env -i \
+    HOME="$fixture_home" \
+    PATH=/usr/bin:/bin \
+    /bin/zsh -lic "$command" >"$stdout_file" 2>"$stderr_file"
+}
+
+make_test_root
+zsh_home="$TEST_ROOT/home"
+zsh_stdout="$TEST_ROOT/zsh.stdout"
+zsh_stderr="$TEST_ROOT/zsh.stderr"
+missing_brew="$TEST_ROOT/no-optional-tools/brew"
+copy_zsh_startup_fixture "$zsh_home" "$missing_brew"
+
+if ! run_isolated_zsh_startup "$zsh_home" "$zsh_stdout" "$zsh_stderr" 'print shell-loaded'; then
+  fail "isolated zsh startup failed: $(cat "$zsh_stderr")"
+fi
+assert_eq 'shell-loaded' "$(cat "$zsh_stdout")" 'isolated zsh startup marker'
+assert_eq '' "$(cat "$zsh_stderr")" 'isolated zsh startup stderr'
+
+printf 'export DOTFILES_LOCAL_LOADED=yes\n' > "$zsh_home/.zshrc.local"
+if ! run_isolated_zsh_startup "$zsh_home" "$zsh_stdout" "$zsh_stderr" 'print "$DOTFILES_LOCAL_LOADED"'; then
+  fail "isolated local override startup failed: $(cat "$zsh_stderr")"
+fi
+assert_eq yes "$(cat "$zsh_stdout")" 'local zsh override'
+assert_eq '' "$(cat "$zsh_stderr")" 'local zsh override stderr'
+cleanup_test_root
+
+expected_local_template='# Machine-local project roots and private tool initialization.
+TS_SEARCH_PATHS=("$HOME/Developer:1")
+
+# Keep secrets out of this example and out of the dotfiles repository.
+# source "$HOME/.config/company/shell.zsh"'
+assert_eq "$expected_local_template" "$(cat "$expected_work_tree/.config/dotfiles/templates/zshrc.local.example")" 'local zsh template'
+
 printf 'PASS: shell helpers\n'
