@@ -11,17 +11,38 @@ canonical_path() {
   (cd -P -- "$1" && pwd)
 }
 
-assert_runner_context() {
+assert_auto_runner_context() {
   local actual_work_tree=$1
   local actual_repo_dir=$2
 
   [[ -n $actual_work_tree && -n $actual_repo_dir ]] || fail 'runner context is unset'
   assert_eq "$(canonical_path "$expected_work_tree")" "$(canonical_path "$actual_work_tree")" 'runner work tree' || return 1
+  actual_repo_dir=$(git -C "$actual_work_tree" --git-dir="$actual_repo_dir" --work-tree="$actual_work_tree" rev-parse --absolute-git-dir) || return 1
   assert_eq "$(canonical_path "$expected_repo_dir")" "$(canonical_path "$actual_repo_dir")" 'runner git dir'
 }
 
-assert_runner_context "$DOTFILES_WORK_TREE" "$DOTFILES_GIT_DIR"
-if assert_runner_context "$expected_work_tree" "$expected_work_tree" 2>/dev/null; then
+assert_explicit_runner_context() {
+  local supplied_work_tree=$1
+  local supplied_repo_dir=$2
+  local derived_work_tree
+  local derived_repo_dir
+  local resolved_repo_dir
+
+  [[ -n $supplied_work_tree && -n $supplied_repo_dir ]] || fail 'explicit runner context is unset'
+  derived_work_tree=$(git -C "$supplied_work_tree" rev-parse --show-toplevel) || return 1
+  assert_eq "$(canonical_path "$derived_work_tree")" "$(canonical_path "$supplied_work_tree")" 'explicit runner work tree' || return 1
+  derived_repo_dir=$(git -C "$derived_work_tree" rev-parse --absolute-git-dir) || return 1
+  resolved_repo_dir=$(git -C "$supplied_work_tree" --git-dir="$supplied_repo_dir" --work-tree="$supplied_work_tree" rev-parse --absolute-git-dir) || return 1
+  assert_eq "$(canonical_path "$derived_repo_dir")" "$(canonical_path "$resolved_repo_dir")" 'explicit runner git dir'
+}
+
+case ${DOTFILES_TEST_CONTEXT_MODE:-} in
+  auto) assert_auto_runner_context "$DOTFILES_WORK_TREE" "$DOTFILES_GIT_DIR" ;;
+  explicit) assert_explicit_runner_context "$DOTFILES_WORK_TREE" "$DOTFILES_GIT_DIR" ;;
+  *) fail 'runner context mode is unset or invalid' ;;
+esac
+
+if assert_auto_runner_context "$expected_work_tree" "$expected_work_tree" 2>/dev/null; then
   fail 'runner context accepted an incorrect git directory'
 fi
 
@@ -57,6 +78,16 @@ make_test_root
 valid_root=$TEST_ROOT
 cleanup_test_root
 [[ ! -e $valid_root ]] || fail 'cleanup_test_root did not remove a valid test root'
+
+make_test_root
+explicit_clone="$TEST_ROOT/explicit-clone"
+init_fixture_repo
+git clone -q "$TEST_ROOT/remote.git" "$explicit_clone"
+assert_explicit_runner_context "$explicit_clone" "$explicit_clone/.git"
+if assert_explicit_runner_context "$explicit_clone" "$expected_repo_dir" 2>/dev/null; then
+  fail 'explicit runner context accepted a mismatched git directory'
+fi
+cleanup_test_root
 
 make_test_root
 ambient_work_tree="$TEST_ROOT/ambient-repo"

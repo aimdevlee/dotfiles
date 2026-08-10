@@ -3,7 +3,18 @@ set -euo pipefail
 
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 source "$script_dir/test_helpers.sh"
-setup_dotfiles_test_context "$script_dir"
+unset DOTFILES_TEST_CONTEXT_MODE
+
+if [[ -n ${DOTFILES_WORK_TREE+x} && -n ${DOTFILES_GIT_DIR+x} ]]; then
+  DOTFILES_TEST_CONTEXT_MODE=explicit
+elif [[ -n ${DOTFILES_WORK_TREE+x} || -n ${DOTFILES_GIT_DIR+x} ]]; then
+  printf 'FAIL: DOTFILES_WORK_TREE and DOTFILES_GIT_DIR must be supplied together\n' >&2
+  exit 1
+else
+  setup_dotfiles_test_context "$script_dir"
+  DOTFILES_TEST_CONTEXT_MODE=auto
+fi
+export DOTFILES_TEST_CONTEXT_MODE
 
 for test_script in ignore_test.sh shell_test.sh check_test.sh bootstrap_test.sh; do
   test_path="$script_dir/$test_script"
