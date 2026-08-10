@@ -20,14 +20,30 @@ ignored_paths=(
   .config/herdr/herdr-server.log
   .config/herdr/herdr.sock
   .config/herdr/plugins/manifest.json
+  .config/herdr/plugins.json
   .config/tmux/plugins/tpm/tpm
+  .config/nvim/.luarc.json
+  .config/example/credentials.local
+  .config/example/secrets.local
 )
 
+if [[ -n ${IGNORE_TEST_PATHS:-} ]]; then
+  ignored_paths=()
+  while IFS= read -r path; do
+    [[ -n $path ]] && ignored_paths+=("$path")
+  done <<EOF
+${IGNORE_TEST_PATHS}
+EOF
+fi
+
 for path in "${ignored_paths[@]}"; do
-  if ! ignored=$(git -C "$work_tree" --git-dir="$repo_dir" --work-tree="$work_tree" check-ignore -- "$path"); then
+  if ! ignored=$(git -c core.excludesFile=/dev/null -C "$work_tree" --git-dir="$repo_dir" --work-tree="$work_tree" check-ignore -v -- "$path"); then
     fail "expected [$path] to be ignored"
   fi
-  assert_eq "$path" "$ignored" "git check-ignore output"
+  source=${ignored%%$'\t'*}
+  matched_path=${ignored#*$'\t'}
+  assert_eq "$path" "$matched_path" "git check-ignore output"
+  [[ $source == .gitignore:* ]] || fail "expected [$path] to match the worktree .gitignore, got [$source]"
 done
 
 printf 'PASS: ignore policy\n'
