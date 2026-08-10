@@ -526,20 +526,33 @@ if [[ $current_refspec != '+refs/heads/*:refs/remotes/origin/*' ]]; then
 fi
 
 printf 'Dotfiles placed successfully.\n'
-if [[ ! -e $work_tree_canonical/.gitconfig.local ]]; then
+local_template_hints=0
+if [[ ! -e $work_tree_canonical/.gitconfig.local && -e $work_tree_canonical/.config/dotfiles/templates/gitconfig.local.example ]]; then
   printf 'Create local machine settings explicitly when ready:\n'
-  [[ -e $work_tree_canonical/.config/dotfiles/templates/gitconfig.local.example ]] && \
-    printf '  /bin/cp -- %q %q\n' "$work_tree_canonical/.config/dotfiles/templates/gitconfig.local.example" "$work_tree_canonical/.gitconfig.local"
-  [[ -e $work_tree_canonical/.config/dotfiles/templates/allowed_signers.local.example ]] && \
-    printf '  /bin/cp -- %q %q\n' "$work_tree_canonical/.config/dotfiles/templates/allowed_signers.local.example" "$work_tree_canonical/.config/git/allowed_signers.local"
-  [[ -e $work_tree_canonical/.config/dotfiles/templates/zshrc.local.example ]] && \
-    printf '  /bin/cp -- %q %q\n' "$work_tree_canonical/.config/dotfiles/templates/zshrc.local.example" "$work_tree_canonical/.zshrc.local"
-  [[ -e $work_tree_canonical/.config/dotfiles/templates/tmux-sessionizer.local.conf.example ]] && \
-    printf '  /bin/cp -- %q %q\n' "$work_tree_canonical/.config/dotfiles/templates/tmux-sessionizer.local.conf.example" "$work_tree_canonical/.config/tmux-sessionizer/tmux-sessionizer.local.conf"
+  printf '  /bin/cp -- %q %q\n' "$work_tree_canonical/.config/dotfiles/templates/gitconfig.local.example" "$work_tree_canonical/.gitconfig.local"
+  local_template_hints=1
+fi
+if [[ ! -e $work_tree_canonical/.config/git/allowed_signers.local && -e $work_tree_canonical/.config/dotfiles/templates/allowed_signers.local.example ]]; then
+  [[ $local_template_hints -eq 1 ]] || printf 'Create local machine settings explicitly when ready:\n'
+  printf '  /bin/cp -- %q %q\n' "$work_tree_canonical/.config/dotfiles/templates/allowed_signers.local.example" "$work_tree_canonical/.config/git/allowed_signers.local"
+  local_template_hints=1
+fi
+if [[ ! -e $work_tree_canonical/.zshrc.local && -e $work_tree_canonical/.config/dotfiles/templates/zshrc.local.example ]]; then
+  [[ $local_template_hints -eq 1 ]] || printf 'Create local machine settings explicitly when ready:\n'
+  printf '  /bin/cp -- %q %q\n' "$work_tree_canonical/.config/dotfiles/templates/zshrc.local.example" "$work_tree_canonical/.zshrc.local"
+  local_template_hints=1
+fi
+if [[ ! -e $work_tree_canonical/.config/tmux-sessionizer/tmux-sessionizer.local.conf && -e $work_tree_canonical/.config/dotfiles/templates/tmux-sessionizer.local.conf.example ]]; then
+  [[ $local_template_hints -eq 1 ]] || printf 'Create local machine settings explicitly when ready:\n'
+  printf '  /bin/cp -- %q %q\n' "$work_tree_canonical/.config/dotfiles/templates/tmux-sessionizer.local.conf.example" "$work_tree_canonical/.config/tmux-sessionizer/tmux-sessionizer.local.conf"
+  local_template_hints=1
+fi
+if [[ $local_template_hints -eq 1 ]]; then
   printf 'Review and edit the examples before running %q.\n' "$work_tree_canonical/.config/dotfiles/check"
-elif [[ -x $work_tree_canonical/.config/dotfiles/check ]]; then
+fi
+if [[ -e $work_tree_canonical/.gitconfig.local && -x $work_tree_canonical/.config/dotfiles/check ]]; then
   DOTFILES_GIT_DIR=$repo_dir DOTFILES_WORK_TREE=$work_tree_canonical \
     "$work_tree_canonical/.config/dotfiles/check"
-else
+elif [[ -e $work_tree_canonical/.gitconfig.local ]]; then
   die 'local identity exists but checked-out dotfiles check is unavailable'
 fi

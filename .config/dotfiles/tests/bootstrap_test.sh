@@ -139,6 +139,15 @@ run_bootstrap "$identity_home" "$REMOTE" --yes
 assert_eq 0 "$BOOTSTRAP_STATUS" 'bootstrap with local identity succeeds'
 assert_contains "fixture check from $identity_home/.config/dotfiles/check" "$BOOTSTRAP_OUTPUT" \
   'check runs from the checked-out fixture, not the real home'
+assert_absent "$identity_home/.config/git/allowed_signers.local"
+assert_absent "$identity_home/.zshrc.local"
+assert_absent "$identity_home/.config/tmux-sessionizer/tmux-sessionizer.local.conf"
+assert_contains "/bin/cp -- $identity_home/.config/dotfiles/templates/allowed_signers.local.example $identity_home/.config/git/allowed_signers.local" \
+  "$BOOTSTRAP_OUTPUT" 'missing allowed signers template hint with existing identity'
+assert_contains "/bin/cp -- $identity_home/.config/dotfiles/templates/zshrc.local.example $identity_home/.zshrc.local" \
+  "$BOOTSTRAP_OUTPUT" 'missing zsh template hint with existing identity'
+assert_contains "/bin/cp -- $identity_home/.config/dotfiles/templates/tmux-sessionizer.local.conf.example $identity_home/.config/tmux-sessionizer/tmux-sessionizer.local.conf" \
+  "$BOOTSTRAP_OUTPUT" 'missing tmux-sessionizer template hint with existing identity'
 
 make_remote protected-git-dir
 /bin/mkdir -p "$SOURCE/.cfg"

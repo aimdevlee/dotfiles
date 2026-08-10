@@ -220,6 +220,32 @@ fi
 assert_eq 'tmux-sessionizer version 0.1.0' "$(cat "$sessionizer_stdout")" 'tmux-sessionizer version without local config'
 assert_eq '' "$(cat "$sessionizer_stderr")" 'tmux-sessionizer version stderr without local config'
 
+mkdir "$sessionizer_home/.config/tmux-sessionizer/tmux-sessionizer.local.conf"
+if ! env -i HOME="$sessionizer_home" XDG_CONFIG_HOME="$sessionizer_home/.config" PATH="$sessionizer_bin:/usr/bin:/bin" \
+  "$sessionizer" --version > "$sessionizer_stdout" 2> "$sessionizer_stderr"; then
+  fail "tmux-sessionizer --version with a local config directory failed: $(cat "$sessionizer_stderr")"
+fi
+assert_eq 'tmux-sessionizer version 0.1.0' "$(cat "$sessionizer_stdout")" 'tmux-sessionizer ignores local config directories'
+assert_eq '' "$(cat "$sessionizer_stderr")" 'tmux-sessionizer local config directory stderr'
+rmdir "$sessionizer_home/.config/tmux-sessionizer/tmux-sessionizer.local.conf"
+
+mkfifo "$sessionizer_home/.config/tmux-sessionizer/tmux-sessionizer.local.conf"
+env -i HOME="$sessionizer_home" XDG_CONFIG_HOME="$sessionizer_home/.config" PATH="$sessionizer_bin:/usr/bin:/bin" \
+  "$sessionizer" --version > "$sessionizer_stdout" 2> "$sessionizer_stderr" &
+sessionizer_pid=$!
+sleep 1
+if kill -0 "$sessionizer_pid" 2>/dev/null; then
+  kill "$sessionizer_pid" 2>/dev/null || true
+  wait "$sessionizer_pid" 2>/dev/null || true
+  fail 'tmux-sessionizer blocked while reading a local config FIFO'
+fi
+if ! wait "$sessionizer_pid"; then
+  fail "tmux-sessionizer --version with a local config FIFO failed: $(cat "$sessionizer_stderr")"
+fi
+assert_eq 'tmux-sessionizer version 0.1.0' "$(cat "$sessionizer_stdout")" 'tmux-sessionizer ignores local config FIFOs'
+assert_eq '' "$(cat "$sessionizer_stderr")" 'tmux-sessionizer local config FIFO stderr'
+rm "$sessionizer_home/.config/tmux-sessionizer/tmux-sessionizer.local.conf"
+
 if ! env -i HOME="$sessionizer_home" XDG_CONFIG_HOME="$sessionizer_home/.config" PATH="$sessionizer_bin:/usr/bin:/bin" \
   "$sessionizer" --list > "$sessionizer_stdout" 2> "$sessionizer_stderr"; then
   fail "tmux-sessionizer fallback listing failed: $(cat "$sessionizer_stderr")"
@@ -238,6 +264,85 @@ assert_eq '    ~/projects with spaces/first project
     ~/second root/second project' "$(cat "$sessionizer_stdout")" \
   'tmux-sessionizer consumes exact local search paths with spaces'
 assert_eq '' "$(cat "$sessionizer_stderr")" 'tmux-sessionizer local listing stderr'
+
+mkdir -p "$sessionizer_home/root A/level one/level two/.git" "$sessionizer_home/root B/level one/level two/.git"
+printf '%s\n' 'TS_SEARCH_PATHS=("$HOME/root A:2" "$HOME/root B")' \
+  > "$sessionizer_home/.config/tmux-sessionizer/tmux-sessionizer.local.conf"
+if ! env -i HOME="$sessionizer_home" XDG_CONFIG_HOME="$sessionizer_home/.config" PATH="$sessionizer_bin:/usr/bin:/bin" \
+  "$sessionizer" --list > "$sessionizer_stdout" 2> "$sessionizer_stderr"; then
+  fail "tmux-sessionizer mixed-depth listing failed: $(cat "$sessionizer_stderr")"
+fi
+assert_contains '    ~/root A/level one/level two' "$(cat "$sessionizer_stdout")" 'tmux-sessionizer honors suffixed depth'
+assert_contains '    ~/root B/level one' "$(cat "$sessionizer_stdout")" 'tmux-sessionizer lists unsuffixed root at default depth'
+if [[ $(cat "$sessionizer_stdout") == *'~/root B/level one/level two'* ]]; then
+  fail 'tmux-sessionizer leaked the prior entry depth into an unsuffixed root'
+fi
+assert_eq '' "$(cat "$sessionizer_stderr")" 'tmux-sessionizer mixed-depth listing stderr'
+
+mkdir -p "$sessionizer_home/colon:root/level one/level two/.git" "$sessionizer_home/non-numeric:tail/literal project/.git"
+printf '%s\n' 'TS_SEARCH_PATHS=("$HOME/colon:root:2" "$HOME/non-numeric:tail")' \
+  > "$sessionizer_home/.config/tmux-sessionizer/tmux-sessionizer.local.conf"
+if ! env -i HOME="$sessionizer_home" XDG_CONFIG_HOME="$sessionizer_home/.config" PATH="$sessionizer_bin:/usr/bin:/bin" \
+  "$sessionizer" --list > "$sessionizer_stdout" 2> "$sessionizer_stderr"; then
+  fail "tmux-sessionizer colon path listing failed: $(cat "$sessionizer_stderr")"
+fi
+assert_contains '    ~/colon:root/level one/level two' "$(cat "$sessionizer_stdout")" 'tmux-sessionizer parses final numeric colon suffix'
+assert_contains '    ~/non-numeric:tail/literal project' "$(cat "$sessionizer_stdout")" 'tmux-sessionizer retains non-numeric colon paths'
+assert_eq '' "$(cat "$sessionizer_stderr")" 'tmux-sessionizer colon path listing stderr'
+
+mkdir -p "$sessionizer_home/fallback boundary/deeper project/.git"
+printf '%s\n' 'TS_SEARCH_PATHS=()' > "$sessionizer_home/.config/tmux-sessionizer/tmux-sessionizer.local.conf"
+if ! env -i HOME="$sessionizer_home" XDG_CONFIG_HOME="$sessionizer_home/.config" PATH="$sessionizer_bin:/usr/bin:/bin" TS_MAX_DEPTH=2 \
+  "$sessionizer" --list > "$sessionizer_stdout" 2> "$sessionizer_stderr"; then
+  fail "tmux-sessionizer bounded fallback listing failed: $(cat "$sessionizer_stderr")"
+fi
+assert_contains '    ~/fallback boundary' "$(cat "$sessionizer_stdout")" 'tmux-sessionizer bounded fallback root'
+if [[ $(cat "$sessionizer_stdout") == *'~/fallback boundary/deeper project'* ]]; then
+  fail 'tmux-sessionizer fallback inherited TS_MAX_DEPTH'
+fi
+assert_eq '' "$(cat "$sessionizer_stderr")" 'tmux-sessionizer bounded fallback listing stderr'
+
+mkdir -p "$sessionizer_home/unset boundary/deeper project/.git" "$sessionizer_home/empty scalar boundary/deeper project/.git"
+printf '%s\n' 'unset TS_SEARCH_PATHS' > "$sessionizer_home/.config/tmux-sessionizer/tmux-sessionizer.local.conf"
+if ! env -i HOME="$sessionizer_home" XDG_CONFIG_HOME="$sessionizer_home/.config" PATH="$sessionizer_bin:/usr/bin:/bin" TS_MAX_DEPTH=2 \
+  "$sessionizer" --list > "$sessionizer_stdout" 2> "$sessionizer_stderr"; then
+  fail "tmux-sessionizer unset fallback listing failed: $(cat "$sessionizer_stderr")"
+fi
+assert_contains '    ~/unset boundary' "$(cat "$sessionizer_stdout")" 'tmux-sessionizer unset fallback root'
+if [[ $(cat "$sessionizer_stdout") == *'~/unset boundary/deeper project'* ]]; then
+  fail 'tmux-sessionizer unset fallback inherited TS_MAX_DEPTH'
+fi
+assert_eq '' "$(cat "$sessionizer_stderr")" 'tmux-sessionizer unset fallback listing stderr'
+
+printf '%s\n' 'TS_SEARCH_PATHS=""' > "$sessionizer_home/.config/tmux-sessionizer/tmux-sessionizer.local.conf"
+if ! env -i HOME="$sessionizer_home" XDG_CONFIG_HOME="$sessionizer_home/.config" PATH="$sessionizer_bin:/usr/bin:/bin" TS_MAX_DEPTH=2 \
+  "$sessionizer" --list > "$sessionizer_stdout" 2> "$sessionizer_stderr"; then
+  fail "tmux-sessionizer empty scalar fallback listing failed: $(cat "$sessionizer_stderr")"
+fi
+assert_contains '    ~/empty scalar boundary' "$(cat "$sessionizer_stdout")" 'tmux-sessionizer empty scalar fallback root'
+if [[ $(cat "$sessionizer_stdout") == *'~/empty scalar boundary/deeper project'* ]]; then
+  fail 'tmux-sessionizer empty scalar fallback inherited TS_MAX_DEPTH'
+fi
+assert_eq '' "$(cat "$sessionizer_stderr")" 'tmux-sessionizer empty scalar fallback listing stderr'
+
+sessionizer_no_tmux_bin="$TEST_ROOT/no-tmux-bin"
+mkdir "$sessionizer_no_tmux_bin"
+for command in bash basename find grep sed tr; do
+  ln -s "/usr/bin/$command" "$sessionizer_no_tmux_bin/$command"
+done
+ln -sf /bin/bash "$sessionizer_no_tmux_bin/bash"
+if ! env -i HOME="$sessionizer_home" XDG_CONFIG_HOME="$sessionizer_home/.config" PATH="$sessionizer_no_tmux_bin" TMUX=stale \
+  "$sessionizer" --list > "$sessionizer_stdout" 2> "$sessionizer_stderr"; then
+  fail "tmux-sessionizer stale TMUX listing failed: $(cat "$sessionizer_stderr")"
+fi
+assert_eq '' "$(cat "$sessionizer_stderr")" 'tmux-sessionizer stale TMUX without tmux stderr'
+
+if ! env -i HOME="$sessionizer_home" XDG_CONFIG_HOME="$sessionizer_home/.config" PATH="$sessionizer_bin:/usr/bin:/bin" \
+  "$sessionizer" --help > "$sessionizer_stdout" 2> "$sessionizer_stderr"; then
+  fail "tmux-sessionizer help failed: $(cat "$sessionizer_stderr")"
+fi
+assert_contains '-l, --list       List matching projects without opening fzf' "$(cat "$sessionizer_stdout")" 'tmux-sessionizer list help'
+assert_eq '' "$(cat "$sessionizer_stderr")" 'tmux-sessionizer help stderr'
 cleanup_test_root
 
 printf 'PASS: shell helpers\n'

@@ -4,10 +4,10 @@ CONFIG_FILE="$CONFIG_DIR/tmux-sessionizer.conf"
 LOCAL_CONFIG_FILE="$CONFIG_DIR/tmux-sessionizer.local.conf"
 VERSION="0.1.0"
 
-if [[ -r "$CONFIG_FILE" ]]; then
+if [[ -f "$CONFIG_FILE" && -r "$CONFIG_FILE" ]]; then
     source "$CONFIG_FILE"
 fi
-if [[ -r "$LOCAL_CONFIG_FILE" ]]; then
+if [[ -f "$LOCAL_CONFIG_FILE" && -r "$LOCAL_CONFIG_FILE" ]]; then
     source "$LOCAL_CONFIG_FILE"
 fi
 
@@ -21,6 +21,7 @@ while [[ "$#" -gt 0 ]]; do
         echo "Options:"
         echo "  -h, --help       Display this help message"
         echo "  -v, --version    Show version"
+        echo "  -l, --list       List matching projects without opening fzf"
         exit 0
         ;;
     -v | --version)
@@ -76,21 +77,25 @@ is_tmux_running() {
     return 0
 }
 
-if [[ ${#TS_SEARCH_PATHS[@]} -eq 0 ]]; then
-    TS_SEARCH_PATHS=("$HOME")
+if [[ -z ${TS_SEARCH_PATHS+x} || ${#TS_SEARCH_PATHS[@]} -eq 0 ]]; then
+    TS_SEARCH_PATHS=("$HOME:1")
+elif [[ ${#TS_SEARCH_PATHS[@]} -eq 1 && -z ${TS_SEARCH_PATHS[0]} ]]; then
+    TS_SEARCH_PATHS=("$HOME:1")
 fi
 
-if [[ ${#TS_EXTRA_SEARCH_PATHS[@]} -gt 0 ]]; then
+if [[ -n ${TS_EXTRA_SEARCH_PATHS+x} && ${#TS_EXTRA_SEARCH_PATHS[@]} -gt 0 ]]; then
     TS_SEARCH_PATHS+=("${TS_EXTRA_SEARCH_PATHS[@]}")
 fi
 
 find_dirs() {
     local sessions
-    sessions=$(tmux list-sessions -F "#{session_name}" 2>/dev/null || true)
-
     local current_session=""
-    if [[ -n "${TMUX}" ]]; then
-        current_session=$(tmux display-message -p '#S')
+    sessions=""
+    if command -v tmux >/dev/null 2>&1; then
+        sessions=$(tmux list-sessions -F "#{session_name}" 2>/dev/null || true)
+        if [[ -n ${TMUX:-} ]]; then
+            current_session=$(tmux display-message -p '#S' 2>/dev/null || true)
+        fi
     fi
 
     local no_session=()
@@ -98,7 +103,9 @@ find_dirs() {
     local current=()
 
     for entry in "${TS_SEARCH_PATHS[@]}"; do
-        if [[ "$entry" =~ ^([^:]+):([0-9]+)$ ]]; then
+        local path=""
+        local depth=""
+        if [[ "$entry" =~ ^(.*):([0-9]+)$ && -n ${BASH_REMATCH[1]} ]]; then
             path="${BASH_REMATCH[1]}"
             depth="${BASH_REMATCH[2]}"
         else
