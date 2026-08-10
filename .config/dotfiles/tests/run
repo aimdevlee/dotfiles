@@ -2,20 +2,8 @@
 set -euo pipefail
 
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
-
-if [[ -z ${DOTFILES_GIT_DIR:-} || -z ${DOTFILES_WORK_TREE:-} ]]; then
-  derived_work_tree=$(git -C "$script_dir" rev-parse --show-toplevel 2>/dev/null || true)
-  if [[ -n $derived_work_tree ]]; then
-    derived_repo_dir=$(git -C "$derived_work_tree" rev-parse --absolute-git-dir)
-  else
-    derived_work_tree=$HOME
-    derived_repo_dir=$HOME/.cfg
-  fi
-
-  : "${DOTFILES_WORK_TREE:=$derived_work_tree}"
-  : "${DOTFILES_GIT_DIR:=$derived_repo_dir}"
-  export DOTFILES_GIT_DIR DOTFILES_WORK_TREE
-fi
+source "$script_dir/test_helpers.sh"
+setup_dotfiles_test_context "$script_dir"
 
 for test_script in ignore_test.sh shell_test.sh check_test.sh bootstrap_test.sh; do
   test_path="$script_dir/$test_script"

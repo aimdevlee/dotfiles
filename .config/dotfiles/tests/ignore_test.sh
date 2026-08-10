@@ -27,23 +27,8 @@ ignored_paths=(
   .config/example/secrets.local
 )
 
-if [[ -n ${IGNORE_TEST_PATHS:-} ]]; then
-  ignored_paths=()
-  while IFS= read -r path; do
-    [[ -n $path ]] && ignored_paths+=("$path")
-  done <<EOF
-${IGNORE_TEST_PATHS}
-EOF
-fi
-
 for path in "${ignored_paths[@]}"; do
-  if ! ignored=$(git -c core.excludesFile=/dev/null -C "$work_tree" --git-dir="$repo_dir" --work-tree="$work_tree" check-ignore -v -- "$path"); then
-    fail "expected [$path] to be ignored"
-  fi
-  source=${ignored%%$'\t'*}
-  matched_path=${ignored#*$'\t'}
-  assert_eq "$path" "$matched_path" "git check-ignore output"
-  [[ $source == .gitignore:* ]] || fail "expected [$path] to match the worktree .gitignore, got [$source]"
+  assert_ignored_by_worktree_policy "$repo_dir" "$work_tree" "$path"
 done
 
 printf 'PASS: ignore policy\n'

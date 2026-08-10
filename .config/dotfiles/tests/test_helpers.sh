@@ -21,6 +21,44 @@ assert_contains() {
   [[ $haystack == *"$needle"* ]] || fail "$message: missing [$needle] in [$haystack]"
 }
 
+setup_dotfiles_test_context() {
+  local script_dir=$1
+  local derived_work_tree
+  local derived_repo_dir
+
+  if [[ -z ${DOTFILES_GIT_DIR:-} || -z ${DOTFILES_WORK_TREE:-} ]]; then
+    derived_work_tree=$(git -C "$script_dir" rev-parse --show-toplevel 2>/dev/null || true)
+    if [[ -n $derived_work_tree ]]; then
+      derived_repo_dir=$(git -C "$derived_work_tree" rev-parse --absolute-git-dir)
+    else
+      derived_work_tree=$HOME
+      derived_repo_dir=$HOME/.cfg
+    fi
+
+    : "${DOTFILES_WORK_TREE:=$derived_work_tree}"
+    : "${DOTFILES_GIT_DIR:=$derived_repo_dir}"
+    export DOTFILES_GIT_DIR DOTFILES_WORK_TREE
+  fi
+}
+
+assert_ignored_by_worktree_policy() {
+  local repo_dir=$1
+  local work_tree=$2
+  local path=$3
+  local ignored
+  local source
+  local matched_path
+
+  if ! ignored=$(git -c core.excludesFile=/dev/null -C "$work_tree" --git-dir="$repo_dir" --work-tree="$work_tree" check-ignore -v -- "$path"); then
+    fail "expected [$path] to be ignored"
+    return 1
+  fi
+  source=${ignored%%$'\t'*}
+  matched_path=${ignored#*$'\t'}
+  assert_eq "$path" "$matched_path" "git check-ignore output" || return 1
+  [[ $source == .gitignore:* ]] || fail "expected [$path] to match the worktree .gitignore, got [$source]"
+}
+
 make_test_root() {
   local temp_base
 
