@@ -1,6 +1,8 @@
 [user]
-  name = aimdevlee
-  email = aimdevlee@gmail.com
+  useConfigOnly = true
+
+[include]
+  path = ~/.gitconfig.local
 
 [core]
   editor = nvim
