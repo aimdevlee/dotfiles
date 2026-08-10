@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+
+for test_script in ignore_test.sh shell_test.sh check_test.sh bootstrap_test.sh; do
+  test_path="$script_dir/$test_script"
+  [[ -x $test_path ]] || continue
+  "$test_path"
+done
