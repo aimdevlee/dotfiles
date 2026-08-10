@@ -1,0 +1,449 @@
+#!/usr/bin/env bash
+
+script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+# shellcheck source=lib.sh
+source "$script_dir/lib.sh"
+
+usage() {
+  printf 'Usage: %s [--fetch | --help]\n' "${0##*/}"
+}
+
+sanitize_git_environment() {
+  unset GIT_CONFIG GIT_CONFIG_GLOBAL GIT_CONFIG_SYSTEM GIT_CONFIG_PARAMETERS GIT_CONFIG_COUNT
+  export GIT_CONFIG_NOSYSTEM=1
+  export GIT_OPTIONAL_LOCKS=0
+}
+
+canonical_directory() {
+  (cd -P -- "$1" 2>/dev/null && pwd)
+}
+
+canonical_file() {
+  local path=$1
+  local directory
+
+  directory=$(canonical_directory "$(dirname -- "$path")") || return 1
+  printf '%s/%s\n' "$directory" "$(basename -- "$path")"
+}
+
+controlled_config() (
+  local key=$1
+
+  sanitize_git_environment
+  HOME=$DOTFILES_WORK_TREE
+  XDG_CONFIG_HOME=$DOTFILES_WORK_TREE/.config
+  export HOME XDG_CONFIG_HOME
+  command git config --global --includes --show-origin --get "$key" 2>/dev/null
+)
+
+read_local_config_value() {
+  local key=$1
+  local local_config=$2
+  local setting
+  local origin
+  local expected_origin
+
+  setting=$(controlled_config "$key") || return 1
+  [[ $setting == *$'\t'* && $setting != *$'\n'* ]] || return 1
+  origin=${setting%%$'\t'*}
+  CONFIG_VALUE=${setting#*$'\t'}
+  [[ $origin == file:* && -n $CONFIG_VALUE ]] || return 1
+  origin=${origin#file:}
+  origin=$(canonical_file "$origin") || return 1
+  expected_origin=$(canonical_file "$local_config") || return 1
+  [[ $origin == "$expected_origin" ]]
+}
+
+check_platform() {
+  if [[ ${DOTFILES_SKIP_PLATFORM_CHECK:-0} == 1 ]]; then
+    warn 'platform check skipped by explicit test override'
+  elif [[ $(uname -s 2>/dev/null) == Darwin && $(uname -m 2>/dev/null) == arm64 ]]; then
+    pass 'platform is Darwin arm64'
+  else
+    fail_check 'platform must be Darwin arm64'
+  fi
+}
+
+check_repository() {
+  local bare
+  local actual_work_tree
+  local expected_work_tree
+
+  if [[ ! -d $DOTFILES_GIT_DIR ]]; then
+    fail_check 'dotfiles Git directory is missing'
+    return 1
+  fi
+  if [[ ! -d $DOTFILES_WORK_TREE ]]; then
+    fail_check 'dotfiles work tree is missing'
+    return 1
+  fi
+
+  bare=$(dotgit config --bool core.bare 2>/dev/null) || bare=
+  if [[ $bare == true ]]; then
+    pass 'dotfiles repository is bare'
+  else
+    fail_check 'dotfiles repository is not bare'
+  fi
+
+  actual_work_tree=$(dotgit rev-parse --show-toplevel 2>/dev/null) || actual_work_tree=
+  actual_work_tree=$(canonical_directory "$actual_work_tree") || actual_work_tree=
+  expected_work_tree=$(canonical_directory "$DOTFILES_WORK_TREE") || expected_work_tree=
+  if [[ -n $actual_work_tree && $actual_work_tree == "$expected_work_tree" ]]; then
+    pass 'dotfiles work tree is explicit and expected'
+  else
+    fail_check 'dotfiles work tree does not match the explicit path'
+  fi
+}
+
+check_remote() {
+  local fetch_requested=$1
+  local origin_url
+  local refspec
+  local upstream
+  local counts
+  local ahead
+  local behind
+
+  origin_url=$(dotgit config --get remote.origin.url 2>/dev/null) || origin_url=
+  if [[ -n $origin_url ]]; then
+    pass 'origin URL is configured'
+  else
+    fail_check 'origin URL is missing'
+  fi
+
+  refspec=$(dotgit config --get-all remote.origin.fetch 2>/dev/null) || refspec=
+  if [[ $refspec == '+refs/heads/*:refs/remotes/origin/*' ]]; then
+    pass 'origin fetch refspec is exact'
+  else
+    fail_check 'origin fetch refspec is missing or unexpected'
+  fi
+
+  upstream=$(dotgit rev-parse --verify --quiet '@{upstream}^{commit}' 2>/dev/null) || upstream=
+  if [[ -n $upstream ]]; then
+    pass 'upstream is configured'
+  else
+    fail_check 'upstream is missing'
+  fi
+
+  if [[ $fetch_requested == 1 ]]; then
+    if dotgit fetch --prune origin; then
+      pass 'origin refs fetched with pruning'
+    else
+      fail_check 'origin fetch failed'
+    fi
+  fi
+
+  if [[ -n $upstream ]]; then
+    counts=$(dotgit rev-list --left-right --count 'HEAD...@{upstream}' 2>/dev/null) || counts=
+    if [[ $counts == *$'\t'* ]]; then
+      ahead=${counts%%$'\t'*}
+      behind=${counts#*$'\t'}
+      pass "branch relation: ahead $ahead, behind $behind"
+    else
+      fail_check 'could not determine ahead and behind counts'
+    fi
+  fi
+}
+
+check_tracked_status() {
+  if dotgit diff --quiet -- 2>/dev/null; then
+    pass 'tracked work-tree files are unchanged'
+  else
+    fail_check 'tracked work-tree files have changes'
+  fi
+
+  if dotgit diff --cached --quiet -- 2>/dev/null; then
+    pass 'index has no staged changes'
+  else
+    fail_check 'index has staged changes'
+  fi
+}
+
+check_identity_and_signing() {
+  local local_config=$DOTFILES_WORK_TREE/.gitconfig.local
+  local name
+  local email
+  local signing_key
+  local allowed_signers
+  local public_key_line
+  local public_key_type
+  local public_key_data
+
+  if [[ ! -f $local_config ]]; then
+    fail_check 'machine-local Git identity file is missing'
+    return
+  fi
+
+  if read_local_config_value user.name "$local_config"; then
+    name=$CONFIG_VALUE
+  else
+    name=
+  fi
+  if read_local_config_value user.email "$local_config"; then
+    email=$CONFIG_VALUE
+  else
+    email=
+  fi
+  if read_local_config_value user.signingKey "$local_config"; then
+    signing_key=$CONFIG_VALUE
+  else
+    signing_key=
+  fi
+  if read_local_config_value gpg.ssh.allowedSignersFile "$local_config"; then
+    allowed_signers=$CONFIG_VALUE
+  else
+    allowed_signers=
+  fi
+
+  if [[ -n $name && -n $email && -n $signing_key ]]; then
+    pass 'effective Git identity is complete and machine-local'
+  else
+    fail_check 'effective machine-local Git identity is incomplete'
+  fi
+
+  if [[ -z $allowed_signers ]]; then
+    fail_check 'effective allowed signers file is missing from local config'
+    return
+  fi
+
+  signing_key=$(HOME=$DOTFILES_WORK_TREE expand_home_path "$signing_key")
+  allowed_signers=$(HOME=$DOTFILES_WORK_TREE expand_home_path "$allowed_signers")
+
+  if [[ ! -f $signing_key ]]; then
+    fail_check 'configured public signing key file is missing'
+    return
+  fi
+  pass 'configured public signing key file exists'
+
+  if [[ ! -f $allowed_signers ]]; then
+    fail_check 'configured allowed signers file is missing'
+    return
+  fi
+  pass 'configured allowed signers file exists'
+
+  public_key_line=$(awk 'NF >= 2 && $1 !~ /^#/ { print $1 "\t" $2; exit }' "$signing_key" 2>/dev/null) || public_key_line=
+  public_key_type=${public_key_line%%$'\t'*}
+  public_key_data=${public_key_line#*$'\t'}
+  if [[ -z $email || -z $public_key_type || -z $public_key_data || $public_key_line != *$'\t'* ]]; then
+    fail_check 'public signing key is malformed'
+  elif awk -v expected_email="$email" -v expected_type="$public_key_type" -v expected_key="$public_key_data" '
+    /^[[:space:]]*#/ || NF == 0 { next }
+    {
+      principal_count = split($1, principals, ",")
+      principal_match = 0
+      for (principal_index = 1; principal_index <= principal_count; principal_index++) {
+        if (principals[principal_index] == expected_email) principal_match = 1
+      }
+      for (field = 2; field < NF; field++) {
+        if (principal_match && $field == expected_type && $(field + 1) == expected_key) {
+          found = 1
+          exit
+        }
+      }
+    }
+    END { exit(found ? 0 : 1) }
+  ' "$allowed_signers" >/dev/null 2>&1; then
+    pass 'allowed signer matches the effective identity and public key'
+  else
+    fail_check 'allowed signer does not match the effective identity and public key'
+  fi
+
+  if dotgit -c gpg.format=ssh -c "gpg.ssh.allowedSignersFile=$allowed_signers" verify-commit HEAD >/dev/null 2>&1; then
+    pass 'HEAD commit signature is valid'
+  else
+    fail_check 'HEAD commit signature verification failed'
+  fi
+}
+
+check_syntax() {
+  local tracked_files
+  local old_ifs
+  local path
+  local zsh_found=0
+  local zsh_ok=1
+  local bash_found=0
+  local bash_ok=1
+
+  tracked_files=$(dotgit ls-files 2>/dev/null) || {
+    fail_check 'could not list tracked files for syntax checks'
+    return
+  }
+
+  old_ifs=$IFS
+  IFS=$'\n'
+  for path in $tracked_files; do
+    case $path in
+      *.zsh|.zshenv|.zprofile|.zshrc|*/.zprofile|*/.zshrc)
+        zsh_found=1
+        if ! have zsh || ! zsh -n "$DOTFILES_WORK_TREE/$path" >/dev/null 2>&1; then
+          zsh_ok=0
+        fi
+        ;;
+    esac
+    case $path in
+      *.sh|.config/dotfiles/check|.config/dotfiles/tests/run|.config/tmux-sessionizer/tmux-sessionizer|.local/bin/tmux-sessionizer)
+        bash_found=1
+        if ! have bash || ! bash -n "$DOTFILES_WORK_TREE/$path" >/dev/null 2>&1; then
+          bash_ok=0
+        fi
+        ;;
+    esac
+  done
+  IFS=$old_ifs
+
+  if [[ $zsh_found -eq 0 ]]; then
+    warn 'no tracked Zsh files found for syntax checking'
+  elif [[ $zsh_ok -eq 1 ]]; then
+    pass 'tracked Zsh files pass syntax checks'
+  else
+    fail_check 'a tracked Zsh file failed syntax checking'
+  fi
+
+  if [[ $bash_found -eq 0 ]]; then
+    warn 'no tracked dotfiles Bash scripts found for syntax checking'
+  elif [[ $bash_ok -eq 1 ]]; then
+    pass 'tracked dotfiles Bash scripts pass syntax checks'
+  else
+    fail_check 'a tracked dotfiles Bash script failed syntax checking'
+  fi
+}
+
+check_nvim() {
+  local temp_root
+  local config_dir=$DOTFILES_WORK_TREE/.config/nvim
+
+  if ! have nvim; then
+    warn 'nvim is unavailable; skipped headless startup check'
+    return
+  fi
+  if [[ ! -f $config_dir/init.lua ]]; then
+    warn 'nvim config is unavailable; skipped headless startup check'
+    return
+  fi
+
+  temp_root=$(/usr/bin/mktemp -d "${TMPDIR:-/tmp}/dotfiles-check.nvim.XXXXXXXX") || {
+    fail_check 'could not create isolated nvim state directory'
+    return
+  }
+  mkdir -p "$temp_root/home" "$temp_root/config" "$temp_root/cache" "$temp_root/data" "$temp_root/state"
+  /bin/ln -s "$config_dir" "$temp_root/config/nvim"
+  mkdir -p "$temp_root/data/nvim/lazy/lazy.nvim/lua/lazy"
+  printf '%s\n' \
+    'local M = {}' \
+    'function M.setup(_) end' \
+    'return M' > "$temp_root/data/nvim/lazy/lazy.nvim/lua/lazy/init.lua"
+  if HOME="$temp_root/home" \
+    XDG_CONFIG_HOME="$temp_root/config" \
+    XDG_CACHE_HOME="$temp_root/cache" \
+    XDG_DATA_HOME="$temp_root/data" \
+    XDG_STATE_HOME="$temp_root/state" \
+    nvim -i NONE --headless +qa >/dev/null 2>&1; then
+    pass 'nvim starts headlessly with isolated state'
+  else
+    fail_check 'nvim headless startup failed'
+  fi
+  /bin/rm -rf -- "$temp_root"
+}
+
+check_tmux() {
+  local temp_root
+  local socket_name="dotfiles-check-$$"
+  local session_name="dotfiles-check-$$"
+  local config_file=$DOTFILES_WORK_TREE/.config/tmux/tmux.conf
+
+  if ! have tmux; then
+    warn 'tmux is unavailable; skipped isolated startup check'
+    return
+  fi
+  if [[ ! -f $config_file ]]; then
+    warn 'tmux config is unavailable; skipped isolated startup check'
+    return
+  fi
+
+  temp_root=$(/usr/bin/mktemp -d "${TMPDIR:-/tmp}/dotfiles-check.tmux.XXXXXXXX") || {
+    fail_check 'could not create isolated tmux state directory'
+    return
+  }
+  mkdir -p "$temp_root/home" "$temp_root/config"
+  if HOME="$temp_root/home" XDG_CONFIG_HOME="$temp_root/config" \
+    tmux -L "$socket_name" -f "$config_file" new-session -d -s "$session_name" >/dev/null 2>&1; then
+    pass 'tmux starts on an isolated socket'
+  else
+    fail_check 'tmux isolated startup failed'
+  fi
+  HOME="$temp_root/home" XDG_CONFIG_HOME="$temp_root/config" \
+    tmux -L "$socket_name" kill-server >/dev/null 2>&1 || true
+  /bin/rm -rf -- "$temp_root"
+}
+
+check_gitleaks() {
+  if ! have gitleaks; then
+    warn 'gitleaks is unavailable; skipped secret scan'
+  elif gitleaks git --no-banner --redact=100 --log-level warn "$DOTFILES_GIT_DIR"; then
+    pass 'gitleaks found no secrets'
+  else
+    fail_check 'gitleaks reported findings or could not complete'
+  fi
+}
+
+check_brewfile() {
+  local brewfile=
+
+  if [[ -f $DOTFILES_WORK_TREE/Brewfile ]]; then
+    brewfile=$DOTFILES_WORK_TREE/Brewfile
+  elif [[ -f $DOTFILES_WORK_TREE/.Brewfile ]]; then
+    brewfile=$DOTFILES_WORK_TREE/.Brewfile
+  fi
+
+  if ! have brew; then
+    warn 'brew is unavailable; skipped Brewfile dependency check'
+  elif [[ -z $brewfile ]]; then
+    warn 'Brewfile is unavailable; skipped dependency check'
+  elif HOMEBREW_NO_AUTO_UPDATE=1 brew bundle check --file="$brewfile" >/dev/null 2>&1; then
+    pass 'Brewfile dependencies are satisfied'
+  else
+    warn 'Brewfile dependencies are not fully satisfied'
+  fi
+}
+
+main() {
+  local fetch_requested=0
+
+  if [[ $# -gt 1 ]]; then
+    usage >&2
+    return 2
+  fi
+  if [[ $# -eq 1 ]]; then
+    case $1 in
+      --fetch) fetch_requested=1 ;;
+      --help)
+        usage
+        return 0
+        ;;
+      *)
+        usage >&2
+        return 2
+        ;;
+    esac
+  fi
+
+  DOTFILES_GIT_DIR=${DOTFILES_GIT_DIR:-$HOME/.cfg}
+  DOTFILES_WORK_TREE=${DOTFILES_WORK_TREE:-$HOME}
+  export DOTFILES_GIT_DIR DOTFILES_WORK_TREE
+  sanitize_git_environment
+
+  check_platform
+  if check_repository; then
+    check_remote "$fetch_requested"
+    check_tracked_status
+    check_identity_and_signing
+    check_syntax
+    check_nvim
+    check_tmux
+    check_gitleaks
+    check_brewfile
+  fi
+  summary
+}
+
+main "$@"
