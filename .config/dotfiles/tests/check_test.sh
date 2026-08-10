@@ -198,10 +198,8 @@ make_fixture() {
   printf 'vim.g.fixture = true\n' > "$source_repo/.config/nvim/init.lua"
   printf 'set -g status off\n' > "$source_repo/.config/tmux/tmux.conf"
   printf '#!/usr/bin/env bash\nprintf "fixture test runner\\n"\n' > "$source_repo/.config/dotfiles/tests/run"
-  printf '#!/usr/bin/env bash\nprintf "fixture\\n"\n' > "$source_repo/.config/tmux-sessionizer/tmux-sessionizer"
   printf '#!/usr/bin/env bash\nprintf "fixture\\n"\n' > "$source_repo/.local/bin/tmux-sessionizer"
-  chmod +x "$source_repo/.config/dotfiles/tests/run" "$source_repo/.config/tmux-sessionizer/tmux-sessionizer" \
-    "$source_repo/.local/bin/tmux-sessionizer"
+  chmod +x "$source_repo/.config/dotfiles/tests/run" "$source_repo/.local/bin/tmux-sessionizer"
   fixture_source_git "$fixture" add .
   fixture_source_git "$fixture" commit -S -q -m 'signed fixture head'
 
@@ -459,6 +457,11 @@ run_check "$syntax_fixture"
 assert_nonzero "$CHECK_STATUS" 'root Zsh profile syntax check'
 assert_contains 'FAIL: a tracked Zsh file failed syntax checking' "$CHECK_OUTPUT" 'root Zsh profile syntax result'
 fixture_git "$syntax_fixture" checkout -- .zprofile
+printf 'if\n' >> "$syntax_fixture/home/.local/bin/tmux-sessionizer"
+run_check "$syntax_fixture"
+assert_nonzero "$CHECK_STATUS" 'canonical tmux-sessionizer syntax check'
+assert_contains 'FAIL: a tracked dotfiles Bash script failed syntax checking' "$CHECK_OUTPUT" 'canonical tmux-sessionizer syntax result'
+fixture_git "$syntax_fixture" checkout -- .local/bin/tmux-sessionizer
 printf 'if\n' >> "$syntax_fixture/home/.config/dotfiles/tests/run"
 run_check "$syntax_fixture"
 assert_nonzero "$CHECK_STATUS" 'extensionless dotfiles runner syntax check'

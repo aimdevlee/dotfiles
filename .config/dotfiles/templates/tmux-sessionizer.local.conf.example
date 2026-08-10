@@ -1,0 +1,2 @@
+# Machine-local project roots for tmux-sessionizer.
+TS_SEARCH_PATHS=("$HOME/Developer:1")

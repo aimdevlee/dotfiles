@@ -1,5 +1,3 @@
-# Machine-local project roots and private tool initialization.
-TS_SEARCH_PATHS=("$HOME/Developer:1")
-
+# Machine-local private tool initialization.
 # Keep secrets out of this example and out of the dotfiles repository.
 # source "$HOME/.config/company/shell.zsh"

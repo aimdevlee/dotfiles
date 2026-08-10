@@ -8,6 +8,7 @@
 /.zshrc.local
 /.gitconfig.local
 /.config/git/allowed_signers.local
+/.config/tmux-sessionizer/tmux-sessionizer.local.conf
 
 # machine-local credentials
 /.ssh/

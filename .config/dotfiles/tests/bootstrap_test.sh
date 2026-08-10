@@ -68,6 +68,7 @@ make_remote() {
   printf '[user]\n  name = Example Only\n' > "$source/.config/dotfiles/templates/gitconfig.local.example"
   printf 'example@example.invalid ssh-ed25519 INVALID\n' > "$source/.config/dotfiles/templates/allowed_signers.local.example"
   printf '# example only\n' > "$source/.config/dotfiles/templates/zshrc.local.example"
+  printf '# sessionizer example only\n' > "$source/.config/dotfiles/templates/tmux-sessionizer.local.conf.example"
   fixture_git -C "$source" add .
   fixture_git -C "$source" commit -qm fixture
   fixture_git clone --bare -q "$source" "$remote"
@@ -124,9 +125,11 @@ assert_contains 'platform check skipped by explicit test override' "$BOOTSTRAP_O
 assert_absent "$clean_home/.gitconfig.local"
 assert_absent "$clean_home/.config/git/allowed_signers.local"
 assert_absent "$clean_home/.zshrc.local"
+assert_absent "$clean_home/.config/tmux-sessionizer/tmux-sessionizer.local.conf"
 assert_contains '.gitconfig.local' "$BOOTSTRAP_OUTPUT" 'git identity copy instruction'
 assert_contains 'allowed_signers.local' "$BOOTSTRAP_OUTPUT" 'allowed signers copy instruction'
 assert_contains '.zshrc.local' "$BOOTSTRAP_OUTPUT" 'zsh copy instruction'
+assert_contains 'tmux-sessionizer.local.conf' "$BOOTSTRAP_OUTPUT" 'tmux-sessionizer local config copy instruction'
 [[ $BOOTSTRAP_OUTPUT != *brew* ]] || fail 'bootstrap must not install programs'
 
 identity_home="$TEST_ROOT/identity-home"

@@ -16,6 +16,7 @@ ignored_paths=(
   .env
   .env.company
   .config/git/allowed_signers.local
+  .config/tmux-sessionizer/tmux-sessionizer.local.conf
   .config/herdr/session-history.json
   .config/herdr/herdr-server.log
   .config/herdr/herdr.sock

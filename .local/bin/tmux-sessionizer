@@ -1,13 +1,18 @@
 #!/usr/bin/env bash
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/tmux-sessionizer"
 CONFIG_FILE="$CONFIG_DIR/tmux-sessionizer.conf"
+LOCAL_CONFIG_FILE="$CONFIG_DIR/tmux-sessionizer.local.conf"
 VERSION="0.1.0"
 
-if [[ -f "$CONFIG_FILE" ]]; then
+if [[ -r "$CONFIG_FILE" ]]; then
     source "$CONFIG_FILE"
+fi
+if [[ -r "$LOCAL_CONFIG_FILE" ]]; then
+    source "$LOCAL_CONFIG_FILE"
 fi
 
 user_selected=""
+list_only=false
 
 while [[ "$#" -gt 0 ]]; do
     case "$1" in
@@ -21,6 +26,9 @@ while [[ "$#" -gt 0 ]]; do
     -v | --version)
         echo "tmux-sessionizer version $VERSION"
         exit 0
+        ;;
+    -l | --list)
+        list_only=true
         ;;
     *)
         user_selected="$1"
@@ -68,9 +76,9 @@ is_tmux_running() {
     return 0
 }
 
-sanity_check
-
-[[ -n "$TS_SEARCH_PATHS" ]] || TS_SEARCH_PATHS=(~/Developer:1)
+if [[ ${#TS_SEARCH_PATHS[@]} -eq 0 ]]; then
+    TS_SEARCH_PATHS=("$HOME")
+fi
 
 if [[ ${#TS_EXTRA_SEARCH_PATHS[@]} -gt 0 ]]; then
     TS_SEARCH_PATHS+=("${TS_EXTRA_SEARCH_PATHS[@]}")
@@ -78,7 +86,7 @@ fi
 
 find_dirs() {
     local sessions
-    sessions=$(tmux list-sessions -F "#{session_name}" 2>/dev/null)
+    sessions=$(tmux list-sessions -F "#{session_name}" 2>/dev/null || true)
 
     local current_session=""
     if [[ -n "${TMUX}" ]]; then
@@ -114,6 +122,13 @@ find_dirs() {
 
     printf '%s\n' "${current[@]}" "${has_session[@]}" "${no_session[@]}" | sed "s|$HOME|~|g"
 }
+
+if [[ $list_only == true ]]; then
+    find_dirs
+    exit 0
+fi
+
+sanity_check
 
 if [[ -n "$user_selected" ]]; then
     selected="$user_selected"

@@ -373,7 +373,7 @@ check_syntax() {
         ;;
     esac
     case $path in
-      *.sh|.config/dotfiles/check|.config/dotfiles/tests/run|.config/tmux-sessionizer/tmux-sessionizer|.local/bin/tmux-sessionizer)
+      *.sh|.config/dotfiles/check|.config/dotfiles/tests/run|.local/bin/tmux-sessionizer)
         bash_found=1
         if [[ ! -x /bin/bash ]] || ! /bin/bash -n "$DOTFILES_WORK_TREE/$path" >/dev/null 2>&1; then
           bash_ok=0

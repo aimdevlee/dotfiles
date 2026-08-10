@@ -162,11 +162,82 @@ assert_eq local-config "$(cat "$zsh_stdout")" 'local zsh override order'
 assert_eq '' "$(cat "$zsh_stderr")" 'local zsh override order stderr'
 cleanup_test_root
 
-expected_local_template='# Machine-local project roots and private tool initialization.
-TS_SEARCH_PATHS=("$HOME/Developer:1")
+sessionizer="$expected_work_tree/.local/bin/tmux-sessionizer"
+common_sessionizer_config="$expected_work_tree/.config/tmux-sessionizer/tmux-sessionizer.conf"
+duplicate_sessionizer='.config/tmux-sessionizer/tmux-sessionizer'
 
+assert_eq '.local/bin/tmux-sessionizer' "$(git -C "$expected_work_tree" ls-files --stage -- .local/bin/tmux-sessionizer | awk '{print $4}')" \
+  'canonical tmux-sessionizer is tracked'
+assert_eq 100755 "$(git -C "$expected_work_tree" ls-files --stage -- .local/bin/tmux-sessionizer | awk '{print $1}')" \
+  'canonical tmux-sessionizer is executable'
+tracked_sessionizers=()
+while IFS=$'\t' read -r staged_entry staged_path; do
+  [[ ${staged_entry%% *} == 100755 && ${staged_path##*/} == tmux-sessionizer ]] && tracked_sessionizers+=("$staged_path")
+done < <(git -C "$expected_work_tree" ls-files --stage)
+assert_eq '.local/bin/tmux-sessionizer' "${tracked_sessionizers[*]}" 'only canonical tmux-sessionizer executable is tracked'
+if git -C "$expected_work_tree" ls-files --error-unmatch -- "$duplicate_sessionizer" >/dev/null 2>&1; then
+  fail 'duplicate tmux-sessionizer executable remains tracked'
+fi
+[[ ! -e "$expected_work_tree/$duplicate_sessionizer" ]] || fail 'duplicate tmux-sessionizer executable remains present'
+/bin/bash -n "$sessionizer" || fail 'canonical tmux-sessionizer fails Bash syntax checking'
+assert_eq '# Define TS_SEARCH_PATHS in tmux-sessionizer.local.conf for machine-specific project roots.
+TS_SEARCH_PATHS=()' "$(cat "$common_sessionizer_config")" 'common tmux-sessionizer config'
+if git -C "$expected_work_tree" grep -n -E '(^|[^[:alnum:]_])(/Users/|~/|\$HOME/Developer)' -- .config/tmux-sessionizer/tmux-sessionizer.conf >/dev/null 2>&1; then
+  fail 'common tmux-sessionizer config contains a personal path'
+fi
+
+expected_local_template='# Machine-local private tool initialization.
 # Keep secrets out of this example and out of the dotfiles repository.
 # source "$HOME/.config/company/shell.zsh"'
 assert_eq "$expected_local_template" "$(cat "$expected_work_tree/.config/dotfiles/templates/zshrc.local.example")" 'local zsh template'
+
+expected_sessionizer_template='# Machine-local project roots for tmux-sessionizer.
+TS_SEARCH_PATHS=("$HOME/Developer:1")'
+assert_eq "$expected_sessionizer_template" \
+  "$(cat "$expected_work_tree/.config/dotfiles/templates/tmux-sessionizer.local.conf.example")" \
+  'local tmux-sessionizer template'
+
+make_test_root
+if ! git -C "$expected_work_tree" check-ignore -v --no-index -- .config/tmux-sessionizer/tmux-sessionizer.local.conf > "$TEST_ROOT/sessionizer-ignore"; then
+  fail 'tmux-sessionizer local config is not ignored'
+fi
+ignore_source=$(cut -f1 "$TEST_ROOT/sessionizer-ignore")
+[[ $ignore_source == .gitignore:* ]] || fail "tmux-sessionizer local config must match root .gitignore, got [$ignore_source]"
+
+sessionizer_home="$TEST_ROOT/sessionizer home"
+sessionizer_bin="$TEST_ROOT/bin"
+sessionizer_stdout="$TEST_ROOT/sessionizer.stdout"
+sessionizer_stderr="$TEST_ROOT/sessionizer.stderr"
+mkdir -p "$sessionizer_home/.config/tmux-sessionizer" "$sessionizer_bin" "$sessionizer_home/fallback project/.git"
+cp "$common_sessionizer_config" "$sessionizer_home/.config/tmux-sessionizer/tmux-sessionizer.conf"
+printf '#!/usr/bin/env bash\nif [[ $1 == list-sessions ]]; then exit 0; fi\nexit 1\n' > "$sessionizer_bin/tmux"
+chmod +x "$sessionizer_bin/tmux"
+
+if ! env -i HOME="$sessionizer_home" XDG_CONFIG_HOME="$sessionizer_home/.config" PATH="$sessionizer_bin:/usr/bin:/bin" \
+  "$sessionizer" --version > "$sessionizer_stdout" 2> "$sessionizer_stderr"; then
+  fail "tmux-sessionizer --version without local config failed: $(cat "$sessionizer_stderr")"
+fi
+assert_eq 'tmux-sessionizer version 0.1.0' "$(cat "$sessionizer_stdout")" 'tmux-sessionizer version without local config'
+assert_eq '' "$(cat "$sessionizer_stderr")" 'tmux-sessionizer version stderr without local config'
+
+if ! env -i HOME="$sessionizer_home" XDG_CONFIG_HOME="$sessionizer_home/.config" PATH="$sessionizer_bin:/usr/bin:/bin" \
+  "$sessionizer" --list > "$sessionizer_stdout" 2> "$sessionizer_stderr"; then
+  fail "tmux-sessionizer fallback listing failed: $(cat "$sessionizer_stderr")"
+fi
+assert_contains '    ~/fallback project' "$(cat "$sessionizer_stdout")" 'tmux-sessionizer safe HOME fallback search root'
+assert_eq '' "$(cat "$sessionizer_stderr")" 'tmux-sessionizer fallback listing stderr'
+
+mkdir -p "$sessionizer_home/projects with spaces/first project/.git" "$sessionizer_home/second root/second project/.git"
+printf '%s\n' 'TS_SEARCH_PATHS=("$HOME/projects with spaces:1" "$HOME/second root:1")' \
+  > "$sessionizer_home/.config/tmux-sessionizer/tmux-sessionizer.local.conf"
+if ! env -i HOME="$sessionizer_home" XDG_CONFIG_HOME="$sessionizer_home/.config" PATH="$sessionizer_bin:/usr/bin:/bin" \
+  "$sessionizer" --list > "$sessionizer_stdout" 2> "$sessionizer_stderr"; then
+  fail "tmux-sessionizer local listing failed: $(cat "$sessionizer_stderr")"
+fi
+assert_eq '    ~/projects with spaces/first project
+    ~/second root/second project' "$(cat "$sessionizer_stdout")" \
+  'tmux-sessionizer consumes exact local search paths with spaces'
+assert_eq '' "$(cat "$sessionizer_stderr")" 'tmux-sessionizer local listing stderr'
+cleanup_test_root
 
 printf 'PASS: shell helpers\n'

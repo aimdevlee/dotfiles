@@ -534,6 +534,8 @@ if [[ ! -e $work_tree_canonical/.gitconfig.local ]]; then
     printf '  /bin/cp -- %q %q\n' "$work_tree_canonical/.config/dotfiles/templates/allowed_signers.local.example" "$work_tree_canonical/.config/git/allowed_signers.local"
   [[ -e $work_tree_canonical/.config/dotfiles/templates/zshrc.local.example ]] && \
     printf '  /bin/cp -- %q %q\n' "$work_tree_canonical/.config/dotfiles/templates/zshrc.local.example" "$work_tree_canonical/.zshrc.local"
+  [[ -e $work_tree_canonical/.config/dotfiles/templates/tmux-sessionizer.local.conf.example ]] && \
+    printf '  /bin/cp -- %q %q\n' "$work_tree_canonical/.config/dotfiles/templates/tmux-sessionizer.local.conf.example" "$work_tree_canonical/.config/tmux-sessionizer/tmux-sessionizer.local.conf"
   printf 'Review and edit the examples before running %q.\n' "$work_tree_canonical/.config/dotfiles/check"
 elif [[ -x $work_tree_canonical/.config/dotfiles/check ]]; then
   DOTFILES_GIT_DIR=$repo_dir DOTFILES_WORK_TREE=$work_tree_canonical \
