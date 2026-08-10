@@ -113,6 +113,7 @@ copy_zsh_startup_fixture() {
   cp "$expected_work_tree/.zshenv" "$fixture_home/.zshenv"
   sed "s|/opt/homebrew/bin/brew|$missing_brew|g" \
     "$expected_work_tree/.config/zsh/.zprofile" > "$fixture_home/.config/zsh/.zprofile"
+  printf '\nPATH=/usr/bin:/bin\nexport PATH\n' >> "$fixture_home/.config/zsh/.zprofile"
   cp "$expected_work_tree/.config/zsh/.zshrc" "$fixture_home/.config/zsh/.zshrc"
 }
 
@@ -134,8 +135,15 @@ zsh_stdout="$TEST_ROOT/zsh.stdout"
 zsh_stderr="$TEST_ROOT/zsh.stderr"
 missing_brew="$TEST_ROOT/no-optional-tools/brew"
 copy_zsh_startup_fixture "$zsh_home" "$missing_brew"
+no_optional_tools_command='for tool in brew eza fzf zoxide oh-my-posh direnv mise; do
+  if (( $+commands[$tool] )); then
+    print -u2 -- "unexpected optional tool: $tool"
+    exit 1
+  fi
+done
+print shell-loaded'
 
-if ! run_isolated_zsh_startup "$zsh_home" "$zsh_stdout" "$zsh_stderr" 'print shell-loaded'; then
+if ! run_isolated_zsh_startup "$zsh_home" "$zsh_stdout" "$zsh_stderr" "$no_optional_tools_command"; then
   fail "isolated zsh startup failed: $(cat "$zsh_stderr")"
 fi
 assert_eq 'shell-loaded' "$(cat "$zsh_stdout")" 'isolated zsh startup marker'
