@@ -1,0 +1,401 @@
+#!/bin/bash
+set -euo pipefail
+
+usage() {
+  printf 'Usage: %s [--dry-run | --yes | --help]\n' "${0##*/}"
+}
+
+die() {
+  printf 'ERROR: %s\n' "$*" >&2
+  exit 1
+}
+
+warn() {
+  printf 'WARN: %s\n' "$*"
+}
+
+quote_path() {
+  printf '%q' "$1"
+}
+
+mode=normal
+if [[ $# -gt 1 ]]; then
+  usage >&2
+  exit 2
+fi
+if [[ $# -eq 1 ]]; then
+  case $1 in
+    --dry-run) mode=dry-run ;;
+    --yes) mode=yes ;;
+    --help)
+      usage
+      exit 0
+      ;;
+    *)
+      usage >&2
+      exit 2
+      ;;
+  esac
+fi
+
+# Do not allow ambient shell or Git configuration to alter security-sensitive
+# operations. Git is intentionally pinned; PATH remains minimal for Git's ssh.
+unset CDPATH ENV BASH_ENV
+unset GIT_CONFIG GIT_CONFIG_SYSTEM GIT_CONFIG_PARAMETERS GIT_CONFIG_COUNT
+export PATH=/usr/bin:/bin
+export GIT_CONFIG_NOSYSTEM=1
+export GIT_CONFIG_GLOBAL=/dev/null
+export GIT_OPTIONAL_LOCKS=0
+export LC_ALL=C
+
+git_cmd() {
+  /usr/bin/git -c core.hooksPath=/dev/null "$@"
+}
+
+[[ -x /usr/bin/git ]] || die '/usr/bin/git is required'
+
+if [[ ${DOTFILES_SKIP_PLATFORM_CHECK:-0} == 1 ]]; then
+  warn 'platform check skipped by explicit test override'
+elif [[ $(/usr/bin/uname -s 2>/dev/null) != Darwin || $(/usr/bin/uname -m 2>/dev/null) != arm64 ]]; then
+  die 'platform must be Darwin arm64'
+fi
+
+DOTFILES_REMOTE=${DOTFILES_REMOTE:-git@github.com:aimdevlee/dotfiles.git}
+DOTFILES_GIT_DIR=${DOTFILES_GIT_DIR:-$HOME/.cfg}
+DOTFILES_WORK_TREE=${DOTFILES_WORK_TREE:-$HOME}
+BACKUP_ROOT=${XDG_STATE_HOME:-$HOME/.local/state}/dotfiles/backups
+
+[[ -n ${HOME:-} && $HOME == /* ]] || die 'HOME must be an absolute path'
+[[ -n $DOTFILES_REMOTE ]] || die 'DOTFILES_REMOTE must not be empty'
+[[ $DOTFILES_WORK_TREE == /* ]] || die 'DOTFILES_WORK_TREE must be an absolute path'
+[[ $DOTFILES_GIT_DIR == /* ]] || die 'DOTFILES_GIT_DIR must be an absolute path'
+[[ $BACKUP_ROOT == /* ]] || die 'backup root must be an absolute path'
+
+case $HOME:$DOTFILES_WORK_TREE:$DOTFILES_GIT_DIR:$BACKUP_ROOT in
+  *'/../'*|*'/./'*|*'//'*) die 'dotfiles paths must be normalized and traversal-free' ;;
+esac
+
+canonical_existing_directory() {
+  local path=$1
+  local canonical
+  [[ -d $path && ! -L $path ]] || return 1
+  canonical=$(cd -P -- "$path" 2>/dev/null && pwd) || return 1
+  printf '%s\n' "$canonical"
+}
+
+canonical_planned_path() {
+  local path=$1
+  local probe=$path
+  local suffix=
+  local component
+  local canonical
+
+  while [[ ! -e $probe && ! -L $probe ]]; do
+    component=${probe##*/}
+    [[ -n $component && $component != . && $component != .. ]] || return 1
+    suffix=/$component$suffix
+    probe=${probe%/*}
+    [[ -n $probe ]] || probe=/
+  done
+  if [[ -L $probe && -n $suffix ]]; then
+    canonical=$(cd -P -- "$probe" 2>/dev/null && pwd) || return 1
+  elif [[ -d $probe && ! -L $probe ]]; then
+    canonical=$(cd -P -- "$probe" 2>/dev/null && pwd) || return 1
+  else
+    canonical=$(cd -P -- "${probe%/*}" 2>/dev/null && pwd) || return 1
+    canonical=$canonical/${probe##*/}
+  fi
+  printf '%s%s\n' "$canonical" "$suffix"
+}
+
+current_uid=$(/usr/bin/id -u) || die 'cannot determine current user'
+home_canonical=$(canonical_existing_directory "$HOME") || die 'HOME must be an existing non-symlink directory'
+work_tree_canonical=$(canonical_existing_directory "$DOTFILES_WORK_TREE") || die 'work tree must be an existing non-symlink directory'
+[[ $HOME == "$home_canonical" ]] || die 'HOME must not resolve through a symlink'
+[[ $DOTFILES_WORK_TREE == "$work_tree_canonical" ]] || die 'work tree must not resolve through a symlink'
+[[ $(/usr/bin/stat -f '%u' "$home_canonical" 2>/dev/null) == "$current_uid" ]] || die 'HOME must be owned by the current user'
+[[ $(/usr/bin/stat -f '%u' "$work_tree_canonical" 2>/dev/null) == "$current_uid" ]] || die 'work tree must be owned by the current user'
+
+case $work_tree_canonical in
+  /|/Users|/private|/private/var|/var|/tmp) die 'work tree path is dangerously broad' ;;
+esac
+
+git_dir_canonical=$(canonical_planned_path "$DOTFILES_GIT_DIR") || die 'cannot canonicalize Git directory'
+backup_root_canonical=$(canonical_planned_path "$BACKUP_ROOT") || die 'cannot canonicalize backup root'
+[[ $DOTFILES_GIT_DIR == "$git_dir_canonical" ]] || die 'Git directory must not escape through a symlink'
+[[ $BACKUP_ROOT == "$backup_root_canonical" ]] || die 'backup root must not escape through a symlink'
+case $git_dir_canonical in
+  "$work_tree_canonical"/*) ;;
+  *) die 'Git directory must be beneath the work tree' ;;
+esac
+case $backup_root_canonical in
+  "$work_tree_canonical"/*) ;;
+  *) die 'backup root must be beneath the work tree' ;;
+esac
+[[ $git_dir_canonical != "$work_tree_canonical" ]] || die 'Git directory must not be the work tree'
+[[ $backup_root_canonical != "$work_tree_canonical" ]] || die 'backup root must not be the work tree'
+
+git_parent=${git_dir_canonical%/*}
+git_base=${git_dir_canonical##*/}
+[[ -d $git_parent && ! -L $git_parent ]] || die 'Git directory parent must be an existing non-symlink directory'
+[[ $(/usr/bin/stat -f '%u' "$git_parent" 2>/dev/null) == "$current_uid" ]] || die 'Git directory parent must be owned by the current user'
+
+CANDIDATE=
+MANIFEST=
+TEMP_BLOB=
+INSTALLED=0
+BACKUP_DIR=
+moved_paths=()
+
+cleanup_temporary() {
+  if [[ -n $TEMP_BLOB && -f $TEMP_BLOB ]]; then
+    /bin/rm -f -- "$TEMP_BLOB"
+  fi
+  if [[ -n $MANIFEST && -f $MANIFEST ]]; then
+    /bin/rm -f -- "$MANIFEST"
+  fi
+  if [[ -n $CANDIDATE && $INSTALLED -eq 0 && -d $CANDIDATE && ${CANDIDATE%/*} == "$git_parent" && ${CANDIDATE##*/} == "$git_base.bootstrap."* ]]; then
+    /bin/rm -rf -- "$CANDIDATE"
+  fi
+}
+
+handle_signal() {
+  local status=$1
+  cleanup_temporary
+  trap - EXIT
+  exit "$status"
+}
+
+trap cleanup_temporary EXIT
+trap 'handle_signal 130' INT
+trap 'handle_signal 143' TERM
+
+existing_repo=0
+repo_dir=
+if [[ -e $git_dir_canonical || -L $git_dir_canonical ]]; then
+  [[ -d $git_dir_canonical && ! -L $git_dir_canonical ]] || die 'existing Git directory is not a safe directory'
+  [[ $(/usr/bin/stat -f '%u' "$git_dir_canonical" 2>/dev/null) == "$current_uid" ]] || die 'existing Git directory must be owned by the current user'
+  [[ $(git_cmd --git-dir="$git_dir_canonical" config --bool core.bare 2>/dev/null || true) == true ]] || die 'existing Git directory is not a bare repository'
+  origin=$(git_cmd --git-dir="$git_dir_canonical" config --get remote.origin.url 2>/dev/null || true)
+  [[ $origin == "$DOTFILES_REMOTE" ]] || die 'existing origin does not exactly match DOTFILES_REMOTE'
+  git_cmd --git-dir="$git_dir_canonical" rev-parse --verify 'HEAD^{commit}' >/dev/null 2>&1 || die 'existing repository HEAD is invalid'
+  existing_repo=1
+  repo_dir=$git_dir_canonical
+else
+  CANDIDATE=$(/usr/bin/mktemp -d "$git_parent/$git_base.bootstrap.XXXXXX") || die 'cannot allocate guarded clone candidate'
+  [[ ${CANDIDATE%/*} == "$git_parent" && ${CANDIDATE##*/} == "$git_base.bootstrap."* ]] || die 'unsafe clone candidate path'
+  /bin/rmdir -- "$CANDIDATE" || die 'cannot prepare clone candidate'
+  if ! git_cmd clone --bare -- "$DOTFILES_REMOTE" "$CANDIDATE" >/dev/null 2>&1; then
+    die 'bare clone failed'
+  fi
+  [[ $(git_cmd --git-dir="$CANDIDATE" config --bool core.bare 2>/dev/null || true) == true ]] || die 'clone candidate is not bare'
+  [[ $(git_cmd --git-dir="$CANDIDATE" config --get remote.origin.url 2>/dev/null || true) == "$DOTFILES_REMOTE" ]] || die 'clone candidate origin mismatch'
+  repo_dir=$CANDIDATE
+fi
+
+MANIFEST=$(/usr/bin/mktemp "$git_parent/.dotfiles-bootstrap-manifest.XXXXXX") || die 'cannot allocate path manifest'
+if ! git_cmd --git-dir="$repo_dir" ls-tree -r --name-only -z HEAD > "$MANIFEST"; then
+  die 'cannot enumerate tracked paths'
+fi
+
+conflicts=()
+while IFS= read -r -d '' relative_path; do
+  [[ -n $relative_path ]] || die 'repository contains an empty tracked path'
+  case $relative_path in
+    /*|..|../*|*/../*|*/..|.|./*|*/./*) die "repository contains unsafe tracked path: $(quote_path "$relative_path")" ;;
+  esac
+  case $relative_path in
+    *$'\n'*|*$'\r'*) die 'repository contains a newline path, which this bootstrap rejects safely' ;;
+  esac
+
+  destination=$work_tree_canonical/$relative_path
+  destination_canonical=$(canonical_planned_path "$destination") || die "tracked destination escapes through an unsafe link: $(quote_path "$relative_path")"
+  [[ $destination == "$destination_canonical" ]] || die "tracked destination escapes through a symlink: $(quote_path "$relative_path")"
+  case $destination in
+    "$work_tree_canonical"/*) ;;
+    *) die "tracked destination is outside work tree: $(quote_path "$relative_path")" ;;
+  esac
+  [[ -e $destination || -L $destination ]] || continue
+
+  tree_entry=$(git_cmd --git-dir="$repo_dir" ls-tree HEAD -- "$relative_path") || die "cannot inspect tracked path: $(quote_path "$relative_path")"
+  metadata=${tree_entry%%$'\t'*}
+  tracked_mode=${metadata%% *}
+  object_id=${metadata##* }
+  identical=0
+  case $tracked_mode in
+    120000)
+      if [[ -L $destination ]]; then
+        TEMP_BLOB=$(/usr/bin/mktemp "$git_parent/.dotfiles-bootstrap-blob.XXXXXX") || die 'cannot allocate link comparison file'
+        git_cmd --git-dir="$repo_dir" cat-file blob "$object_id" > "$TEMP_BLOB" || die "cannot read tracked link: $(quote_path "$relative_path")"
+        tracked_target=
+        IFS= read -r -d '' tracked_target < <(/bin/cat "$TEMP_BLOB"; printf '\0') || true
+        [[ ${#tracked_target} -eq $(/usr/bin/stat -f '%z' "$TEMP_BLOB") ]] || die "tracked link target contains an unsupported NUL byte: $(quote_path "$relative_path")"
+        actual_target=
+        IFS= read -r -d '' actual_target < <(/usr/bin/readlink -n "$destination"; printf '\0') || true
+        [[ $actual_target == "$tracked_target" ]] && identical=1
+        /bin/rm -f -- "$TEMP_BLOB"
+        TEMP_BLOB=
+      fi
+      ;;
+    100644|100755)
+      if [[ -f $destination && ! -L $destination ]]; then
+        TEMP_BLOB=$(/usr/bin/mktemp "$git_parent/.dotfiles-bootstrap-blob.XXXXXX") || die 'cannot allocate blob comparison file'
+        git_cmd --git-dir="$repo_dir" cat-file blob "$object_id" > "$TEMP_BLOB" || die "cannot read tracked file: $(quote_path "$relative_path")"
+        destination_mode=100644
+        [[ -x $destination ]] && destination_mode=100755
+        if [[ $destination_mode == "$tracked_mode" ]] && /usr/bin/cmp -s -- "$TEMP_BLOB" "$destination"; then
+          identical=1
+        fi
+        /bin/rm -f -- "$TEMP_BLOB"
+        TEMP_BLOB=
+      fi
+      ;;
+    *) die "unsupported tracked mode $tracked_mode: $(quote_path "$relative_path")" ;;
+  esac
+  [[ $identical -eq 1 ]] || conflicts+=("$relative_path")
+done < "$MANIFEST"
+/bin/rm -f -- "$MANIFEST"
+MANIFEST=
+
+if [[ $existing_repo -eq 1 && ${#conflicts[@]} -gt 0 ]]; then
+  printf 'ERROR: existing repository checkout is unsafe; these tracked paths differ:\n' >&2
+  for relative_path in "${conflicts[@]}"; do
+    printf '  %q\n' "$relative_path" >&2
+  done
+  exit 1
+fi
+
+timestamp=$(/bin/date -u '+%Y%m%dT%H%M%SZ')
+planned_backup=$backup_root_canonical/$timestamp-$$
+suffix=0
+while [[ -e $planned_backup || -L $planned_backup ]]; do
+  suffix=$((suffix + 1))
+  planned_backup=$backup_root_canonical/$timestamp-$$-$suffix
+done
+
+if [[ ${#conflicts[@]} -gt 0 ]]; then
+  printf 'Conflicts requiring backup:\n'
+  for relative_path in "${conflicts[@]}"; do
+    printf '  %q -> %q\n' "$work_tree_canonical/$relative_path" "$planned_backup/$relative_path"
+  done
+fi
+
+if [[ $mode == dry-run ]]; then
+  if [[ ${#conflicts[@]} -eq 0 ]]; then
+    printf 'No conflicts detected.\n'
+  fi
+  printf 'Dry run complete; no changes made.\n'
+  exit 0
+fi
+
+if [[ ${#conflicts[@]} -gt 0 && $mode == normal ]]; then
+  printf 'Move all listed conflicts to the one backup directory above? [y/N] '
+  answer=
+  IFS= read -r answer || true
+  case $answer in
+    y|Y|yes|YES) ;;
+    *) die 'bootstrap declined; no changes made' ;;
+  esac
+fi
+
+print_recovery() {
+  local path
+  [[ -n $BACKUP_DIR ]] || return 0
+  printf 'Backup retained at: %q\n' "$BACKUP_DIR" >&2
+  printf 'Moved relative paths:\n' >&2
+  for path in "${moved_paths[@]}"; do
+    printf '  %q\n' "$path" >&2
+  done
+  printf 'Restore each path after resolving the destination, for example:\n' >&2
+  for path in "${moved_paths[@]}"; do
+    printf '  /bin/mv -- %q %q\n' "$BACKUP_DIR/$path" "$work_tree_canonical/$path" >&2
+  done
+}
+
+if [[ ${#conflicts[@]} -gt 0 ]]; then
+  /bin/mkdir -p -- "$backup_root_canonical" || die 'cannot create backup root'
+  [[ $(canonical_existing_directory "$backup_root_canonical") == "$backup_root_canonical" ]] || die 'backup root escaped through a symlink'
+  [[ $(/usr/bin/stat -f '%u' "$backup_root_canonical" 2>/dev/null) == "$current_uid" ]] || die 'backup root must be owned by the current user'
+  /bin/mkdir -- "$planned_backup" || die 'cannot create unique backup directory'
+  BACKUP_DIR=$planned_backup
+  for relative_path in "${conflicts[@]}"; do
+    source_path=$work_tree_canonical/$relative_path
+    backup_path=$BACKUP_DIR/$relative_path
+    backup_parent=${backup_path%/*}
+    source_parent=${source_path%/*}
+    [[ $(canonical_existing_directory "$source_parent") == "$source_parent" ]] || {
+      print_recovery
+      die 'conflict source parent escaped through a symlink'
+    }
+    /bin/mkdir -p -- "$backup_parent" || {
+      print_recovery
+      die 'cannot create backup parent'
+    }
+    [[ $(canonical_existing_directory "$backup_parent") == "${backup_parent}" ]] || {
+      print_recovery
+      die 'backup destination escaped through a symlink'
+    }
+    if /bin/mv -- "$source_path" "$backup_path"; then
+      moved_paths+=("$relative_path")
+    else
+      print_recovery
+      die "failed to move conflict: $(quote_path "$relative_path")"
+    fi
+  done
+fi
+
+if [[ $existing_repo -eq 0 ]]; then
+  if [[ -e $git_dir_canonical || -L $git_dir_canonical ]]; then
+    print_recovery
+    die 'final Git directory appeared during bootstrap; candidate was not installed'
+  fi
+  if ! /bin/mv -n -- "$CANDIDATE" "$git_dir_canonical"; then
+    print_recovery
+    die 'cannot install guarded clone candidate'
+  fi
+  [[ ! -e $CANDIDATE && ! -L $CANDIDATE ]] || {
+    print_recovery
+    die 'final Git directory appeared during atomic candidate installation'
+  }
+  CANDIDATE=
+  INSTALLED=1
+  repo_dir=$git_dir_canonical
+fi
+
+if ! git_cmd --git-dir="$repo_dir" --work-tree="$work_tree_canonical" checkout -f HEAD --; then
+  print_recovery
+  die 'checkout failed; the backup was intentionally retained'
+fi
+
+current_untracked=$(git_cmd --git-dir="$repo_dir" config --local --get status.showUntrackedFiles 2>/dev/null || true)
+if [[ $current_untracked != no ]]; then
+  git_cmd --git-dir="$repo_dir" config --local status.showUntrackedFiles no || {
+    print_recovery
+    die 'cannot configure status.showUntrackedFiles'
+  }
+fi
+current_refspec=$(git_cmd --git-dir="$repo_dir" config --local --get-all remote.origin.fetch 2>/dev/null || true)
+if [[ $current_refspec != '+refs/heads/*:refs/remotes/origin/*' ]]; then
+  git_cmd --git-dir="$repo_dir" config --local --unset-all remote.origin.fetch >/dev/null 2>&1 || true
+  git_cmd --git-dir="$repo_dir" config --local --add remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*' || {
+    print_recovery
+    die 'cannot configure the origin fetch refspec'
+  }
+fi
+
+printf 'Dotfiles placed successfully.\n'
+if [[ ! -e $work_tree_canonical/.gitconfig.local ]]; then
+  printf 'Create local machine settings explicitly when ready:\n'
+  [[ -e $work_tree_canonical/.config/dotfiles/templates/gitconfig.local.example ]] && \
+    printf '  /bin/cp -- %q %q\n' "$work_tree_canonical/.config/dotfiles/templates/gitconfig.local.example" "$work_tree_canonical/.gitconfig.local"
+  [[ -e $work_tree_canonical/.config/dotfiles/templates/allowed_signers.local.example ]] && \
+    printf '  /bin/cp -- %q %q\n' "$work_tree_canonical/.config/dotfiles/templates/allowed_signers.local.example" "$work_tree_canonical/.config/git/allowed_signers.local"
+  [[ -e $work_tree_canonical/.config/dotfiles/templates/zshrc.local.example ]] && \
+    printf '  /bin/cp -- %q %q\n' "$work_tree_canonical/.config/dotfiles/templates/zshrc.local.example" "$work_tree_canonical/.zshrc.local"
+  printf 'Review and edit the examples before running %q.\n' "$work_tree_canonical/.config/dotfiles/check"
+elif [[ -x $work_tree_canonical/.config/dotfiles/check ]]; then
+  DOTFILES_GIT_DIR=$repo_dir DOTFILES_WORK_TREE=$work_tree_canonical \
+    "$work_tree_canonical/.config/dotfiles/check"
+else
+  die 'local identity exists but checked-out dotfiles check is unavailable'
+fi
