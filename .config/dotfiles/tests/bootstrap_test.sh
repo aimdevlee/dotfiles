@@ -79,20 +79,32 @@ run_bootstrap() {
   local home=$1
   local remote=$2
   shift 2
+  run_bootstrap_with_paths "$home" "$remote" "$home/.cfg" "$home/.state" "$@"
+}
+
+run_bootstrap_with_paths() {
+  local home=$1
+  local remote=$2
+  local git_dir=$3
+  local state_home=$4
+  shift 4
   local output="$home.bootstrap-output"
   local status
 
   set +e
-  /usr/bin/env -i \
-    HOME="$home" \
-    PATH=/usr/bin:/bin \
-    LC_ALL=C \
-    DOTFILES_REMOTE="$remote" \
-    DOTFILES_GIT_DIR="$home/.cfg" \
-    DOTFILES_WORK_TREE="$home" \
-    XDG_STATE_HOME="$home/.state" \
-    DOTFILES_SKIP_PLATFORM_CHECK=1 \
-    "$bootstrap" "$@" > "$output" 2>&1
+  if [[ $state_home == DEFAULT ]]; then
+    /usr/bin/env -i \
+      HOME="$home" PATH=/usr/bin:/bin LC_ALL=C \
+      DOTFILES_REMOTE="$remote" DOTFILES_GIT_DIR="$git_dir" DOTFILES_WORK_TREE="$home" \
+      DOTFILES_SKIP_PLATFORM_CHECK=1 \
+      "$bootstrap" "$@" > "$output" 2>&1
+  else
+    /usr/bin/env -i \
+      HOME="$home" PATH=/usr/bin:/bin LC_ALL=C \
+      DOTFILES_REMOTE="$remote" DOTFILES_GIT_DIR="$git_dir" DOTFILES_WORK_TREE="$home" \
+      XDG_STATE_HOME="$state_home" DOTFILES_SKIP_PLATFORM_CHECK=1 \
+      "$bootstrap" "$@" > "$output" 2>&1
+  fi
   status=$?
   set -e
   BOOTSTRAP_STATUS=$status
@@ -124,6 +136,82 @@ run_bootstrap "$identity_home" "$REMOTE" --yes
 assert_eq 0 "$BOOTSTRAP_STATUS" 'bootstrap with local identity succeeds'
 assert_contains "fixture check from $identity_home/.config/dotfiles/check" "$BOOTSTRAP_OUTPUT" \
   'check runs from the checked-out fixture, not the real home'
+
+make_remote protected-git-dir
+/bin/mkdir -p "$SOURCE/.cfg"
+printf 'tracked repository collision\n' > "$SOURCE/.cfg/HEAD"
+fixture_git -C "$SOURCE" add .
+fixture_git -C "$SOURCE" commit -qm 'protected git directory path'
+fixture_git --git-dir="$REMOTE" fetch -q "$SOURCE" main:main
+protected_git_home="$TEST_ROOT/protected-git-home"
+/bin/mkdir "$protected_git_home"
+printf 'unchanged\n' > "$protected_git_home/sentinel"
+protected_git_before=$(snapshot_tree "$protected_git_home")
+run_bootstrap "$protected_git_home" "$REMOTE" --yes
+[[ $BOOTSTRAP_STATUS -ne 0 ]] || fail 'tracked path beneath Git directory must be rejected'
+assert_contains 'Git directory' "$BOOTSTRAP_OUTPUT" 'Git directory overlap rejection'
+assert_absent "$protected_git_home/.cfg"
+assert_eq "$protected_git_before" "$(snapshot_tree "$protected_git_home")" 'Git directory overlap leaves worktree unchanged'
+assert_absent "$protected_git_home/.state/dotfiles/backups"
+
+make_remote protected-spaced-git-dir
+/bin/mkdir -p "$SOURCE/.config/dotfiles repo.git"
+printf 'tracked spaced repository collision\n' > "$SOURCE/.config/dotfiles repo.git/HEAD"
+fixture_git -C "$SOURCE" add .
+fixture_git -C "$SOURCE" commit -qm 'protected spaced git directory path'
+fixture_git --git-dir="$REMOTE" fetch -q "$SOURCE" main:main
+spaced_git_home="$TEST_ROOT/spaced-git-home"
+/bin/mkdir -p "$spaced_git_home/.config"
+spaced_git_before=$(snapshot_tree "$spaced_git_home")
+run_bootstrap_with_paths "$spaced_git_home" "$REMOTE" "$spaced_git_home/.config/dotfiles repo.git" "$spaced_git_home/.state" --yes
+[[ $BOOTSTRAP_STATUS -ne 0 ]] || fail 'tracked path beneath spaced Git directory must be rejected'
+assert_contains 'Git directory' "$BOOTSTRAP_OUTPUT" 'spaced Git directory overlap rejection'
+assert_absent "$spaced_git_home/.config/dotfiles repo.git"
+assert_eq "$spaced_git_before" "$(snapshot_tree "$spaced_git_home")" 'spaced Git overlap leaves worktree unchanged'
+
+make_remote protected-backup-root
+/bin/mkdir -p "$SOURCE/.local/state/dotfiles/backups/retained"
+printf 'must not overwrite recovery\n' > "$SOURCE/.local/state/dotfiles/backups/retained/data"
+fixture_git -C "$SOURCE" add .
+fixture_git -C "$SOURCE" commit -qm 'protected backup root path'
+fixture_git --git-dir="$REMOTE" fetch -q "$SOURCE" main:main
+protected_backup_home="$TEST_ROOT/protected-backup-home"
+/bin/mkdir "$protected_backup_home"
+printf 'unchanged\n' > "$protected_backup_home/sentinel"
+protected_backup_before=$(snapshot_tree "$protected_backup_home")
+run_bootstrap_with_paths "$protected_backup_home" "$REMOTE" "$protected_backup_home/.cfg" DEFAULT --yes
+[[ $BOOTSTRAP_STATUS -ne 0 ]] || fail 'tracked path beneath backup root must be rejected'
+assert_contains 'backup root' "$BOOTSTRAP_OUTPUT" 'backup root overlap rejection'
+assert_absent "$protected_backup_home/.cfg"
+assert_absent "$protected_backup_home/.local"
+assert_eq "$protected_backup_before" "$(snapshot_tree "$protected_backup_home")" 'backup overlap leaves worktree unchanged'
+
+make_remote protected-prefix-lookalike
+/bin/mkdir -p "$SOURCE/.cfg2" "$SOURCE/.local/state/dotfiles/backups2"
+printf 'allowed git prefix\n' > "$SOURCE/.cfg2/HEAD"
+printf 'allowed backup prefix\n' > "$SOURCE/.local/state/dotfiles/backups2/data"
+fixture_git -C "$SOURCE" add .
+fixture_git -C "$SOURCE" commit -qm 'protected prefix lookalikes'
+fixture_git --git-dir="$REMOTE" fetch -q "$SOURCE" main:main
+lookalike_home="$TEST_ROOT/lookalike-home"
+/bin/mkdir "$lookalike_home"
+run_bootstrap_with_paths "$lookalike_home" "$REMOTE" "$lookalike_home/.cfg" DEFAULT --yes
+assert_eq 0 "$BOOTSTRAP_STATUS" "protected prefix lookalikes remain allowed: $BOOTSTRAP_OUTPUT"
+assert_eq 'allowed git prefix' "$(<"$lookalike_home/.cfg2/HEAD")" 'Git prefix lookalike checkout'
+assert_eq 'allowed backup prefix' "$(<"$lookalike_home/.local/state/dotfiles/backups2/data")" 'backup prefix lookalike checkout'
+
+make_remote protected-outside-roots
+outside_home="$TEST_ROOT/outside-roots-home"
+outside_git_parent="$TEST_ROOT/outside git parent"
+outside_state="$TEST_ROOT/outside state"
+/bin/mkdir "$outside_home" "$outside_git_parent" "$outside_state"
+outside_home_before=$(snapshot_tree "$outside_home")
+run_bootstrap_with_paths "$outside_home" "$REMOTE" "$outside_git_parent/.cfg with space" "$outside_state" --yes
+[[ $BOOTSTRAP_STATUS -ne 0 ]] || fail 'protected roots outside worktree must fail closed'
+assert_contains 'beneath the work tree' "$BOOTSTRAP_OUTPUT" 'outside protected root rejection'
+assert_absent "$outside_git_parent/.cfg with space"
+assert_eq '' "$(/usr/bin/find "$outside_state" -mindepth 1 -print -quit)" 'outside backup root unchanged'
+assert_eq "$outside_home_before" "$(snapshot_tree "$outside_home")" 'outside-root rejection leaves worktree unchanged'
 
 make_remote conflicts
 printf 'upstream executable\n' > "$SOURCE/bin tool"

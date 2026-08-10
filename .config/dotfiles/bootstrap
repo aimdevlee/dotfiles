@@ -108,6 +108,16 @@ canonical_planned_path() {
   printf '%s%s\n' "$canonical" "$suffix"
 }
 
+path_is_equal_or_beneath() {
+  local path=$1
+  local root=$2
+
+  case $path in
+    "$root"|"$root"/*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 current_uid=$(/usr/bin/id -u) || die 'cannot determine current user'
 home_canonical=$(canonical_existing_directory "$HOME") || die 'HOME must be an existing non-symlink directory'
 work_tree_canonical=$(canonical_existing_directory "$DOTFILES_WORK_TREE") || die 'work tree must be an existing non-symlink directory'
@@ -134,6 +144,10 @@ case $backup_root_canonical in
 esac
 [[ $git_dir_canonical != "$work_tree_canonical" ]] || die 'Git directory must not be the work tree'
 [[ $backup_root_canonical != "$work_tree_canonical" ]] || die 'backup root must not be the work tree'
+if path_is_equal_or_beneath "$git_dir_canonical" "$backup_root_canonical" || \
+  path_is_equal_or_beneath "$backup_root_canonical" "$git_dir_canonical"; then
+  die 'Git directory and backup root must not overlap'
+fi
 
 git_parent=${git_dir_canonical%/*}
 git_base=${git_dir_canonical##*/}
@@ -215,6 +229,12 @@ while IFS= read -r -d '' relative_path; do
     "$work_tree_canonical"/*) ;;
     *) die "tracked destination is outside work tree: $(quote_path "$relative_path")" ;;
   esac
+  if path_is_equal_or_beneath "$destination_canonical" "$git_dir_canonical"; then
+    die "tracked destination overlaps the protected Git directory: $(quote_path "$relative_path")"
+  fi
+  if path_is_equal_or_beneath "$destination_canonical" "$backup_root_canonical"; then
+    die "tracked destination overlaps the protected backup root: $(quote_path "$relative_path")"
+  fi
   [[ -e $destination || -L $destination ]] || continue
 
   tree_entry=$(git_cmd --git-dir="$repo_dir" ls-tree HEAD -- "$relative_path") || die "cannot inspect tracked path: $(quote_path "$relative_path")"
