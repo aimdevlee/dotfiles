@@ -22,7 +22,9 @@ assert_contains() {
 }
 
 make_test_root() {
-  local temp_base=${TMPDIR:-/tmp}
+  local temp_base
+
+  temp_base=$(cd -P -- "${TMPDIR:-/tmp}" && pwd)
 
   TEST_ROOT=$(mktemp -d "$temp_base/dotfiles-test.XXXXXXXX")
   : > "$TEST_ROOT/.dotfiles-test-root"
@@ -30,14 +32,20 @@ make_test_root() {
 }
 
 cleanup_test_root() {
-  local temp_base=${TMPDIR:-/tmp}
+  local temp_base
   local root=${TEST_ROOT:-}
+  local root_name
+
+  temp_base=$(cd -P -- "${TMPDIR:-/tmp}" && pwd)
 
   [[ -n $root && -d $root && -f $root/.dotfiles-test-root ]] || return 0
-  case $root in
-    "$temp_base"/dotfiles-test.*|/tmp/dotfiles-test.*) rm -rf -- "$root" ;;
-    *) fail "refusing to remove unvalidated test root [$root]" ;;
-  esac
+  root_name=${root##*/}
+  if [[ $root != "$temp_base/$root_name" || $root_name != dotfiles-test.* ]]; then
+    fail "refusing to remove unvalidated test root [$root]"
+    return 1
+  fi
+
+  rm -rf -- "$root"
 }
 
 init_fixture_repo() {
