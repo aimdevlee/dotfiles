@@ -124,16 +124,26 @@ run_bootstrap_from_source() {
   local home=$1
   local remote=$2
   local source=$3
-  shift 3
+  local source_ref=$4
+  shift 4
   local output="$home.bootstrap-output"
   local status
 
   set +e
-  /usr/bin/env -i \
-    HOME="$home" PATH=/usr/bin:/bin LC_ALL=C \
-    DOTFILES_REMOTE="$remote" DOTFILES_SOURCE="$source" DOTFILES_GIT_DIR="$home/.cfg" DOTFILES_WORK_TREE="$home" \
-    XDG_STATE_HOME="$home/.state" DOTFILES_SKIP_PLATFORM_CHECK=1 \
-    "$bootstrap" "$@" > "$output" 2>&1
+  if [[ $source_ref == UNSET ]]; then
+    /usr/bin/env -i \
+      HOME="$home" PATH=/usr/bin:/bin LC_ALL=C \
+      DOTFILES_REMOTE="$remote" DOTFILES_SOURCE="$source" DOTFILES_GIT_DIR="$home/.cfg" DOTFILES_WORK_TREE="$home" \
+      XDG_STATE_HOME="$home/.state" DOTFILES_SKIP_PLATFORM_CHECK=1 \
+      "$bootstrap" "$@" > "$output" 2>&1
+  else
+    /usr/bin/env -i \
+      HOME="$home" PATH=/usr/bin:/bin LC_ALL=C \
+      DOTFILES_REMOTE="$remote" DOTFILES_SOURCE="$source" DOTFILES_SOURCE_REF="$source_ref" \
+      DOTFILES_GIT_DIR="$home/.cfg" DOTFILES_WORK_TREE="$home" \
+      XDG_STATE_HOME="$home/.state" DOTFILES_SKIP_PLATFORM_CHECK=1 \
+      "$bootstrap" "$@" > "$output" 2>&1
+  fi
   status=$?
   set -e
   BOOTSTRAP_STATUS=$status
@@ -149,6 +159,13 @@ assert_eq 'tracked payload' "$(<"$clean_home/tracked.txt")" 'tracked payload pla
 assert_eq true "$(/usr/bin/git --git-dir="$clean_home/.cfg" config --bool core.bare)" 'repository is bare'
 assert_eq no "$(/usr/bin/git --git-dir="$clean_home/.cfg" config status.showUntrackedFiles)" 'untracked status setting'
 assert_eq '+refs/heads/*:refs/remotes/origin/*' "$(/usr/bin/git --git-dir="$clean_home/.cfg" config --get-all remote.origin.fetch)" 'fetch refspec'
+assert_eq origin "$(/usr/bin/git --git-dir="$clean_home/.cfg" config --get branch.main.remote)" 'fresh bootstrap branch remote'
+assert_eq refs/heads/main "$(/usr/bin/git --git-dir="$clean_home/.cfg" config --get branch.main.merge)" 'fresh bootstrap branch merge ref'
+clean_head=$(fixture_git --git-dir="$clean_home/.cfg" rev-parse HEAD)
+assert_eq "$clean_head" "$(fixture_git --git-dir="$clean_home/.cfg" rev-parse refs/remotes/origin/main)" \
+  'fresh bootstrap initializes origin tracking ref without fetching'
+assert_eq "$clean_head" "$(fixture_git --git-dir="$clean_home/.cfg" rev-parse '@{upstream}')" \
+  'fresh bootstrap creates a resolvable upstream'
 assert_contains 'platform check skipped by explicit test override' "$BOOTSTRAP_OUTPUT" 'test-only platform warning'
 assert_absent "$clean_home/.gitconfig.local"
 assert_absent "$clean_home/.config/git/allowed_signers.local"
@@ -177,26 +194,57 @@ remote_head=$(fixture_git --git-dir="$REMOTE" rev-parse refs/heads/main)
 source_pinned_home="$TEST_ROOT/source-pinned-home"
 /bin/mkdir "$source_pinned_home"
 source_pinned_before=$(snapshot_tree "$source_pinned_home")
-run_bootstrap_from_source "$source_pinned_home" "$REMOTE" "$reviewed_clone/.git" --dry-run
+run_bootstrap_from_source "$source_pinned_home" "$REMOTE" "$reviewed_clone/.git" "$reviewed_head" --dry-run
 assert_eq 0 "$BOOTSTRAP_STATUS" "source-pinned dry-run succeeds: $BOOTSTRAP_OUTPUT"
 assert_eq "$source_pinned_before" "$(snapshot_tree "$source_pinned_home")" 'source-pinned dry-run changes nothing'
 assert_absent "$source_pinned_home/.cfg"
 assert_not_contains remote-advance.txt "$BOOTSTRAP_OUTPUT" 'source-pinned dry-run does not inspect final remote advance'
-run_bootstrap_from_source "$source_pinned_home" "$REMOTE" "$reviewed_clone/.git" --yes
+printf 'source clone commit B\n' > "$reviewed_clone/reviewed.txt"
+printf 'source clone only B\n' > "$reviewed_clone/source-clone-advance.txt"
+fixture_git -C "$reviewed_clone" add reviewed.txt source-clone-advance.txt
+fixture_git -C "$reviewed_clone" -c user.name='Bootstrap Test' -c user.email=bootstrap@example.invalid \
+  -c commit.gpgSign=false commit -qm 'source clone advances to B'
+source_head_b=$(fixture_git -C "$reviewed_clone" rev-parse HEAD)
+[[ $reviewed_head != "$source_head_b" ]] || fail 'reviewed source clone must advance after dry-run'
+run_bootstrap_from_source "$source_pinned_home" "$REMOTE" "$reviewed_clone/.git" "$reviewed_head" --yes
 assert_eq 0 "$BOOTSTRAP_STATUS" "source-pinned bootstrap succeeds: $BOOTSTRAP_OUTPUT"
 assert_eq 'reviewed commit A' "$(<"$source_pinned_home/reviewed.txt")" 'source-pinned checkout uses reviewed commit'
 assert_absent "$source_pinned_home/remote-advance.txt"
+assert_absent "$source_pinned_home/source-clone-advance.txt"
 assert_eq "$reviewed_head" "$(fixture_git --git-dir="$source_pinned_home/.cfg" rev-parse HEAD)" 'dry-run and actual placement use the reviewed source HEAD'
 assert_eq "$REMOTE" "$(fixture_git --git-dir="$source_pinned_home/.cfg" config --get remote.origin.url)" 'source-pinned installation resets origin to final remote'
+
+source_unpinned_home="$TEST_ROOT/source-unpinned-home"
+/bin/mkdir "$source_unpinned_home"
+run_bootstrap_from_source "$source_unpinned_home" "$REMOTE" "$reviewed_clone/.git" UNSET --yes
+assert_eq 0 "$BOOTSTRAP_STATUS" "source-only bootstrap succeeds: $BOOTSTRAP_OUTPUT"
+assert_eq 'source clone commit B' "$(<"$source_unpinned_home/reviewed.txt")" \
+  'DOTFILES_SOURCE without a ref preserves source HEAD behavior'
+assert_eq "$source_head_b" "$(fixture_git --git-dir="$source_unpinned_home/.cfg" rev-parse HEAD)" \
+  'source-only bootstrap installs current source HEAD'
 
 invalid_source_home="$TEST_ROOT/invalid-source-home"
 /bin/mkdir "$invalid_source_home"
 invalid_source_before=$(snapshot_tree "$invalid_source_home")
-run_bootstrap_from_source "$invalid_source_home" "$REMOTE" "$TEST_ROOT/missing-reviewed-source" --dry-run
+run_bootstrap_from_source "$invalid_source_home" "$REMOTE" "$TEST_ROOT/missing-reviewed-source" UNSET --dry-run
 [[ $BOOTSTRAP_STATUS -ne 0 ]] || fail 'missing DOTFILES_SOURCE must fail without falling back to the final remote'
 assert_contains 'bare clone failed' "$BOOTSTRAP_OUTPUT" 'missing DOTFILES_SOURCE failure is clear'
 assert_eq "$invalid_source_before" "$(snapshot_tree "$invalid_source_home")" 'invalid DOTFILES_SOURCE leaves worktree unchanged'
 assert_absent "$invalid_source_home/.cfg"
+
+for invalid_ref in main 0000000000000000000000000000000000000000; do
+  invalid_ref_home="$TEST_ROOT/invalid-ref-malformed"
+  [[ $invalid_ref == main ]] || invalid_ref_home="$TEST_ROOT/invalid-ref-missing"
+  /bin/mkdir "$invalid_ref_home"
+  invalid_ref_before=$(snapshot_tree "$invalid_ref_home")
+  run_bootstrap_from_source "$invalid_ref_home" "$REMOTE" "$reviewed_clone/.git" "$invalid_ref" --yes
+  [[ $BOOTSTRAP_STATUS -ne 0 ]] || fail "invalid DOTFILES_SOURCE_REF must fail: $invalid_ref"
+  assert_contains 'DOTFILES_SOURCE_REF' "$BOOTSTRAP_OUTPUT" 'invalid source ref failure is clear'
+  assert_eq "$invalid_ref_before" "$(snapshot_tree "$invalid_ref_home")" 'invalid source ref leaves worktree unchanged'
+  assert_absent "$invalid_ref_home/.cfg"
+  [[ -z $(/usr/bin/find "$invalid_ref_home" -maxdepth 1 -name '.cfg.bootstrap.*' -print -quit) ]] || \
+    fail 'invalid source ref cleans candidate and lock'
+done
 
 identity_home="$TEST_ROOT/identity-home"
 /bin/mkdir "$identity_home"

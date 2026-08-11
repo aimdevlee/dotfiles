@@ -86,8 +86,8 @@ done
 for command in \
   'git clone git@github.com:aimdevlee/dotfiles.git dotfiles-bootstrap-tmp' \
   'reviewed_head=$(git -C "$bootstrap_source" rev-parse HEAD)' \
-  'DOTFILES_SOURCE="$bootstrap_source/.git" DOTFILES_REMOTE="git@github.com:aimdevlee/dotfiles.git" "$bootstrap_source/.config/dotfiles/bootstrap" --dry-run' \
-  'DOTFILES_SOURCE="$bootstrap_source/.git" DOTFILES_REMOTE="git@github.com:aimdevlee/dotfiles.git" "$bootstrap_source/.config/dotfiles/bootstrap"' \
+  'DOTFILES_SOURCE="$bootstrap_source/.git" DOTFILES_SOURCE_REF="$reviewed_head" DOTFILES_REMOTE="git@github.com:aimdevlee/dotfiles.git" "$bootstrap_source/.config/dotfiles/bootstrap" --dry-run' \
+  'DOTFILES_SOURCE="$bootstrap_source/.git" DOTFILES_SOURCE_REF="$reviewed_head" DOTFILES_REMOTE="git@github.com:aimdevlee/dotfiles.git" "$bootstrap_source/.config/dotfiles/bootstrap"' \
   'if [[ ! -e "$HOME/.gitconfig.local" && ! -L "$HOME/.gitconfig.local" ]]; then' \
   'if [[ ! -e "$HOME/.config/git/allowed_signers.local" && ! -L "$HOME/.config/git/allowed_signers.local" ]]; then' \
   'if [[ ! -e "$HOME/.zshrc.local" && ! -L "$HOME/.zshrc.local" ]]; then' \
@@ -120,6 +120,7 @@ for guidance in \
   'does not commit, push, or run Git garbage collection' \
   'Do not pipe remote code to a shell.' \
   'temporary clone is not deleted automatically' \
+  'DOTFILES_SOURCE_REF' \
   'Dry run complete; no changes made.' \
   'Move all listed conflicts to the one backup directory above? [y/N]' \
   'checkout failure intentionally retains the backup' \

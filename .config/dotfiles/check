@@ -351,6 +351,9 @@ check_syntax() {
   local tracked_files
   local old_ifs
   local path
+  local first_line
+  local bash_entrypoint
+  local zsh_entrypoint
   local zsh_found=0
   local zsh_ok=1
   local bash_found=0
@@ -364,22 +367,36 @@ check_syntax() {
   old_ifs=$IFS
   IFS=$'\n'
   for path in $tracked_files; do
+    first_line=
+    if [[ -f $DOTFILES_WORK_TREE/$path ]]; then
+      IFS= read -r first_line < "$DOTFILES_WORK_TREE/$path" || true
+    fi
+    bash_entrypoint=0
+    zsh_entrypoint=0
+    case $first_line in
+      '#!'*'/bash'*|'#!'*'env bash'*|'#!'*'/sh'|'#!'*'env sh'*) bash_entrypoint=1 ;;
+      '#!'*'/zsh'*|'#!'*'env zsh'*) zsh_entrypoint=1 ;;
+    esac
     case $path in
       *.zsh|.zshenv|.zprofile|.zshrc|*/.zprofile|*/.zshrc)
-        zsh_found=1
-        if [[ ! -x /bin/zsh ]] || ! /bin/zsh -n "$DOTFILES_WORK_TREE/$path" >/dev/null 2>&1; then
-          zsh_ok=0
-        fi
+        zsh_entrypoint=1
         ;;
     esac
+    if [[ $zsh_entrypoint -eq 1 ]]; then
+      zsh_found=1
+      if [[ ! -x /bin/zsh ]] || ! /bin/zsh -n "$DOTFILES_WORK_TREE/$path" >/dev/null 2>&1; then
+        zsh_ok=0
+      fi
+    fi
     case $path in
-      *.sh|.config/dotfiles/check|.config/dotfiles/tests/run|.local/bin/tmux-sessionizer)
-        bash_found=1
-        if [[ ! -x /bin/bash ]] || ! /bin/bash -n "$DOTFILES_WORK_TREE/$path" >/dev/null 2>&1; then
-          bash_ok=0
-        fi
-        ;;
+      *.sh) bash_entrypoint=1 ;;
     esac
+    if [[ $bash_entrypoint -eq 1 ]]; then
+      bash_found=1
+      if [[ ! -x /bin/bash ]] || ! /bin/bash -n "$DOTFILES_WORK_TREE/$path" >/dev/null 2>&1; then
+        bash_ok=0
+      fi
+    fi
   done
   IFS=$old_ifs
 
@@ -403,6 +420,8 @@ check_syntax() {
 check_nvim() {
   local nvim_executable
   local config_dir=$DOTFILES_WORK_TREE/.config/nvim
+  local diagnostics
+  local nvim_status=0
 
   if ! resolve_executable nvim; then
     warn 'nvim is unavailable; skipped headless startup check'
@@ -426,15 +445,24 @@ check_nvim() {
     'local M = {}' \
     'function M.setup(_) end' \
     'return M' > "$NVIM_TEMP_ROOT/data/nvim/lazy/lazy.nvim/lua/lazy/init.lua"
-  if /usr/bin/env -i \
-    HOME="$NVIM_TEMP_ROOT/home" \
-    XDG_CONFIG_HOME="$NVIM_TEMP_ROOT/config" \
-    XDG_CACHE_HOME="$NVIM_TEMP_ROOT/cache" \
-    XDG_DATA_HOME="$NVIM_TEMP_ROOT/data" \
-    XDG_STATE_HOME="$NVIM_TEMP_ROOT/state" \
-    PATH=/usr/bin:/bin \
-    TERM=xterm-256color \
-    "$nvim_executable" -i NONE --headless +qa >/dev/null 2>&1; then
+  diagnostics=$NVIM_TEMP_ROOT/diagnostics
+  (
+    ulimit -f 128
+    /usr/bin/env -i \
+      HOME="$NVIM_TEMP_ROOT/home" \
+      XDG_CONFIG_HOME="$NVIM_TEMP_ROOT/config" \
+      XDG_CACHE_HOME="$NVIM_TEMP_ROOT/cache" \
+      XDG_DATA_HOME="$NVIM_TEMP_ROOT/data" \
+      XDG_STATE_HOME="$NVIM_TEMP_ROOT/state" \
+      PATH=/usr/bin:/bin \
+      TERM=xterm-256color \
+      "$nvim_executable" -i NONE --headless \
+        -c 'lua if vim.v.errmsg ~= "" then vim.cmd("cquit 1") end' \
+        -c 'qa!'
+  ) > "$diagnostics" 2>&1 || nvim_status=$?
+  if [[ $nvim_status -eq 0 ]] && \
+    ! /usr/bin/grep -E 'Error detected while processing|(^|[^[:alnum:]_])E[0-9]+:|stack traceback:' \
+      "$diagnostics" >/dev/null 2>&1; then
     pass 'nvim starts headlessly with isolated state'
   else
     fail_check 'nvim headless startup failed'
@@ -446,6 +474,8 @@ check_tmux() {
   local tmux_executable
   local session_name="dotfiles-check-$$"
   local config_file=$DOTFILES_WORK_TREE/.config/tmux/tmux.conf
+  local diagnostics
+  local tmux_status=0
 
   if ! resolve_executable tmux; then
     warn 'tmux is unavailable; skipped isolated startup check'
@@ -478,21 +508,45 @@ check_tmux() {
     return
   fi
   TMUX_EXECUTABLE=$tmux_executable
-  TMUX_SERVER_STARTED=1
   /bin/mkdir -p "$TMUX_TEMP_ROOT/home" "$TMUX_TEMP_ROOT/config" "$TMUX_TEMP_ROOT/state" \
     "$TMUX_TEMP_ROOT/cache"
-  if /usr/bin/env -i \
-    HOME="$TMUX_TEMP_ROOT/home" \
-    XDG_CONFIG_HOME="$TMUX_TEMP_ROOT/config" \
-    XDG_STATE_HOME="$TMUX_TEMP_ROOT/state" \
-    XDG_CACHE_HOME="$TMUX_TEMP_ROOT/cache" \
-    ZDOTDIR="$TMUX_TEMP_ROOT/home" \
-    TMUX_TMPDIR="$TMUX_SHORT_ROOT" \
-    SHELL=/bin/sh \
-    PATH=/usr/bin:/bin \
-    TERM=xterm-256color \
-    "$tmux_executable" -S "$TMUX_SOCKET_PATH" -f "$config_file" new-session -d -s "$session_name" >/dev/null 2>&1; then
-    pass 'tmux starts on an isolated socket'
+  diagnostics=$TMUX_TEMP_ROOT/diagnostics
+  (
+    ulimit -f 128
+    /usr/bin/env -i \
+      HOME="$TMUX_TEMP_ROOT/home" \
+      XDG_CONFIG_HOME="$TMUX_TEMP_ROOT/config" \
+      XDG_STATE_HOME="$TMUX_TEMP_ROOT/state" \
+      XDG_CACHE_HOME="$TMUX_TEMP_ROOT/cache" \
+      ZDOTDIR="$TMUX_TEMP_ROOT/home" \
+      TMUX_TMPDIR="$TMUX_SHORT_ROOT" \
+      SHELL=/bin/sh \
+      PATH=/usr/bin:/bin \
+      TERM=xterm-256color \
+      "$tmux_executable" -S "$TMUX_SOCKET_PATH" -f /dev/null new-session -d -s "$session_name"
+  ) > "$diagnostics" 2>&1 || tmux_status=$?
+  if [[ $tmux_status -eq 0 ]]; then
+    TMUX_SERVER_STARTED=1
+    tmux_status=0
+    (
+      ulimit -f 128
+      /usr/bin/env -i \
+        HOME="$TMUX_TEMP_ROOT/home" \
+        XDG_CONFIG_HOME="$TMUX_TEMP_ROOT/config" \
+        XDG_STATE_HOME="$TMUX_TEMP_ROOT/state" \
+        XDG_CACHE_HOME="$TMUX_TEMP_ROOT/cache" \
+        ZDOTDIR="$TMUX_TEMP_ROOT/home" \
+        TMUX_TMPDIR="$TMUX_SHORT_ROOT" \
+        SHELL=/bin/sh \
+        PATH=/usr/bin:/bin \
+        TERM=xterm-256color \
+        "$tmux_executable" -S "$TMUX_SOCKET_PATH" source-file "$config_file"
+    ) > "$diagnostics" 2>&1 || tmux_status=$?
+  fi
+  if [[ $TMUX_SERVER_STARTED -eq 1 && $tmux_status -eq 0 ]]; then
+    pass 'tmux loads tracked config on an isolated socket'
+  elif [[ $TMUX_SERVER_STARTED -eq 1 ]]; then
+    fail_check 'tmux tracked config failed to load'
   else
     fail_check 'tmux isolated startup failed'
   fi

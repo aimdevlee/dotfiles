@@ -7,6 +7,7 @@ source "$script_dir/test_helpers.sh"
 work_tree=$(/usr/bin/git -C "$script_dir" rev-parse --show-toplevel)
 check_script="$work_tree/.config/dotfiles/check"
 lib_script="$work_tree/.config/dotfiles/lib.sh"
+bootstrap_script="$work_tree/.config/dotfiles/bootstrap"
 
 make_test_root
 trap cleanup_test_root EXIT
@@ -84,13 +85,25 @@ make_optional_tool_wrappers() {
     '[[ -L $XDG_CONFIG_HOME/nvim ]] || exit 91' \
     '[[ -f $XDG_DATA_HOME/nvim/lazy/lazy.nvim/lua/lazy/init.lua ]] || exit 93' \
     'printf "nvim|%s|HOME=%s\n" "$*" "${HOME:-}" >> "$log"' \
+    'if /usr/bin/grep -q "INVALID_NVIM_FIXTURE" "$XDG_CONFIG_HOME/nvim/init.lua"; then' \
+    '  case " $* " in *"vim.v.errmsg"*"cquit"*) exit 1 ;; *) exit 0 ;; esac' \
+    'fi' \
+    'if /usr/bin/grep -q "NVIM_DIAGNOSTIC_FIXTURE" "$XDG_CONFIG_HOME/nvim/init.lua"; then' \
+    '  printf "Error detected while processing fixture\n" >&2' \
+    'fi' \
     'exit 0' > "$bin_dir/nvim"
   printf '%s\n' \
     '#!/bin/bash' \
     'wrapper_dir=$(cd -P -- "${0%/*}" && pwd)' \
     'log=${wrapper_dir%/bin}/optional-tools.log' \
     'printf "tmux|%s|HOME=%s|XDG_CONFIG_HOME=%s|XDG_STATE_HOME=%s|XDG_CACHE_HOME=%s|ZDOTDIR=%s|TMUX_TMPDIR=%s|SHELL=%s|PATH=%s|TERM=%s\n" "$*" "${HOME:-}" "${XDG_CONFIG_HOME:-}" "${XDG_STATE_HOME:-}" "${XDG_CACHE_HOME:-}" "${ZDOTDIR:-}" "${TMUX_TMPDIR:-}" "${SHELL:-}" "${PATH:-}" "${TERM:-}" >> "$log"' \
-    'case " $* " in *" new-session "*) "${SHELL:-/bin/sh}" -c ":" ;; esac' \
+    'case " $* " in *" new-session "*) "${SHELL:-/bin/sh}" -c ":"; exit $? ;; esac' \
+    'case " $* " in *" source-file "*)' \
+    '  config_file=' \
+    '  for argument in "$@"; do config_file=$argument; done' \
+    '  /usr/bin/grep -q "unknown-fixture-command" "$config_file" && exit 1' \
+    '  exit 0' \
+    ';; esac' \
     'exit 0' > "$bin_dir/tmux"
   printf '%s\n' \
     '#!/bin/bash' \
@@ -197,9 +210,11 @@ make_fixture() {
   printf 'typeset -g FIXTURE=1\n' > "$source_repo/.config/zsh/.zshrc"
   printf 'vim.g.fixture = true\n' > "$source_repo/.config/nvim/init.lua"
   printf 'set -g status off\n' > "$source_repo/.config/tmux/tmux.conf"
+  printf '#!/bin/bash\nprintf "fixture bootstrap\\n"\n' > "$source_repo/.config/dotfiles/bootstrap"
   printf '#!/usr/bin/env bash\nprintf "fixture test runner\\n"\n' > "$source_repo/.config/dotfiles/tests/run"
   printf '#!/usr/bin/env bash\nprintf "fixture\\n"\n' > "$source_repo/.local/bin/tmux-sessionizer"
-  chmod +x "$source_repo/.config/dotfiles/tests/run" "$source_repo/.local/bin/tmux-sessionizer"
+  chmod +x "$source_repo/.config/dotfiles/bootstrap" "$source_repo/.config/dotfiles/tests/run" \
+    "$source_repo/.local/bin/tmux-sessionizer"
   fixture_source_git "$fixture" add .
   fixture_source_git "$fixture" commit -S -q -m 'signed fixture head'
 
@@ -212,6 +227,77 @@ make_fixture() {
   run_sanitized_git "$fixture/git-home" --git-dir="$home/.cfg" --work-tree="$home" checkout -q -f main
 
   make_runtime_path "$fixture"
+}
+
+make_bootstrapped_fixture() {
+  local fixture="$TEST_ROOT/bootstrap-real-check"
+  local home="$fixture/home"
+  local source_repo="$fixture/source"
+  local remote_repo="$fixture/remote.git"
+  local public_key
+  local bootstrap_output="$fixture.bootstrap-output"
+  local bootstrap_status
+
+  FIXTURE=$fixture
+  mkdir -p "$TEST_ROOT/git-tmp" "$fixture/git-home" "$home/.ssh" "$source_repo"
+  /usr/bin/ssh-keygen -q -t ed25519 -N '' -f "$home/.ssh/id_ed25519"
+  public_key=$(awk '{print $2}' "$home/.ssh/id_ed25519.pub")
+  write_common_config "$home"
+  write_local_config "$home"
+  printf 'sensitive-fixture@example.invalid ssh-ed25519 %s fixture-comment\n' "$public_key" \
+    > "$home/.config/git/allowed_signers.local"
+
+  run_sanitized_git "$fixture/git-home" init -q -b main "$source_repo"
+  configure_signing_repo "$fixture" "$home/.ssh/id_ed25519.pub"
+  mkdir -p "$source_repo/.config/dotfiles/tests" "$source_repo/.config/git" "$source_repo/.config/nvim" \
+    "$source_repo/.config/tmux" "$source_repo/.config/tmux-sessionizer" "$source_repo/.config/zsh" \
+    "$source_repo/.local/bin"
+  cp "$bootstrap_script" "$source_repo/.config/dotfiles/bootstrap"
+  cp "$check_script" "$source_repo/.config/dotfiles/check"
+  cp "$lib_script" "$source_repo/.config/dotfiles/lib.sh"
+  printf '%s\n' \
+    '[user]' \
+    '  useConfigOnly = true' \
+    '[include]' \
+    '  path = ~/.gitconfig.local' \
+    '[gpg]' \
+    '  format = ssh' \
+    '[commit]' \
+    '  gpgsign = true' > "$source_repo/.config/git/config"
+  printf '.cfg/\n' > "$source_repo/.gitignore"
+  printf 'export FIXTURE=1\n' > "$source_repo/.zshenv"
+  printf 'typeset -g FIXTURE_PROFILE=1\n' > "$source_repo/.zprofile"
+  printf 'typeset -g FIXTURE_RC=1\n' > "$source_repo/.zshrc"
+  printf 'typeset -g FIXTURE=1\n' > "$source_repo/.config/zsh/.zshrc"
+  printf 'vim.g.fixture = true\n' > "$source_repo/.config/nvim/init.lua"
+  printf 'set -g status off\n' > "$source_repo/.config/tmux/tmux.conf"
+  printf '#!/usr/bin/env bash\nprintf "fixture test runner\\n"\n' > "$source_repo/.config/dotfiles/tests/run"
+  printf '#!/usr/bin/env bash\nprintf "fixture\\n"\n' > "$source_repo/.local/bin/tmux-sessionizer"
+  chmod +x "$source_repo/.config/dotfiles/bootstrap" "$source_repo/.config/dotfiles/check" \
+    "$source_repo/.config/dotfiles/tests/run" "$source_repo/.local/bin/tmux-sessionizer"
+  fixture_source_git "$fixture" add .
+  fixture_source_git "$fixture" commit -S -q -m 'signed bootstrap check fixture head'
+  run_sanitized_git "$fixture/git-home" clone --bare -q "$source_repo" "$remote_repo"
+
+  set +e
+  /usr/bin/env -i \
+    HOME="$home" \
+    PATH=/usr/bin:/bin \
+    LC_ALL=C \
+    TMPDIR="$TEST_ROOT/git-tmp" \
+    DOTFILES_REMOTE="$remote_repo" \
+    DOTFILES_SOURCE="$remote_repo" \
+    DOTFILES_GIT_DIR="$home/.cfg" \
+    DOTFILES_WORK_TREE="$home" \
+    XDG_STATE_HOME="$home/.state" \
+    DOTFILES_SKIP_PLATFORM_CHECK=1 \
+    "$bootstrap_script" --yes > "$bootstrap_output" 2>&1
+  bootstrap_status=$?
+  set -e
+  assert_zero "$bootstrap_status" "real bootstrap before real check: $(cat "$bootstrap_output")"
+
+  make_runtime_path "$fixture"
+  make_optional_tool_wrappers "$fixture"
 }
 
 run_check() {
@@ -371,6 +457,21 @@ assert_zero "$CHECK_STATUS" 'read-only default check'
 assert_file_absent "$default_fixture/hostile-path-marker" 'default mode invoked hostile PATH bash/git'
 assert_eq "$(cat "$TEST_ROOT/default.before")" "$(cat "$TEST_ROOT/default.after")" 'default mode mutated fixture files or refs'
 
+make_bootstrapped_fixture
+bootstrapped_fixture=$FIXTURE
+bootstrapped_head=$(fixture_git "$bootstrapped_fixture" rev-parse HEAD)
+assert_eq origin "$(fixture_git "$bootstrapped_fixture" config --get branch.main.remote)" \
+  'real bootstrap configures branch remote without fixture seeding'
+assert_eq refs/heads/main "$(fixture_git "$bootstrapped_fixture" config --get branch.main.merge)" \
+  'real bootstrap configures branch merge without fixture seeding'
+assert_eq "$bootstrapped_head" "$(fixture_git "$bootstrapped_fixture" rev-parse refs/remotes/origin/main)" \
+  'real bootstrap initializes upstream remote-tracking ref without fetching'
+run_check "$bootstrapped_fixture"
+assert_zero "$CHECK_STATUS" 'fresh real bootstrap passes real default check'
+assert_contains 'PASS: upstream is configured' "$CHECK_OUTPUT" 'fresh real bootstrap upstream configuration result'
+assert_contains 'ahead 0' "$CHECK_OUTPUT" 'fresh real bootstrap upstream ahead result'
+assert_contains 'behind 0' "$CHECK_OUTPUT" 'fresh real bootstrap upstream behind result'
+
 make_fixture fetch-only
 fetch_fixture=$FIXTURE
 printf 'local branch change\n' >> "$fetch_fixture/home/.zshenv"
@@ -466,6 +567,11 @@ printf 'if\n' >> "$syntax_fixture/home/.config/dotfiles/tests/run"
 run_check "$syntax_fixture"
 assert_nonzero "$CHECK_STATUS" 'extensionless dotfiles runner syntax check'
 assert_contains 'FAIL: a tracked dotfiles Bash script failed syntax checking' "$CHECK_OUTPUT" 'extensionless runner syntax result'
+fixture_git "$syntax_fixture" checkout -- .config/dotfiles/tests/run
+printf 'if\n' >> "$syntax_fixture/home/.config/dotfiles/bootstrap"
+run_check "$syntax_fixture"
+assert_nonzero "$CHECK_STATUS" 'extensionless bootstrap syntax check'
+assert_contains 'FAIL: a tracked dotfiles Bash script failed syntax checking' "$CHECK_OUTPUT" 'extensionless bootstrap syntax result'
 
 make_fixture untracked
 untracked_fixture=$FIXTURE
@@ -487,9 +593,12 @@ DOTFILES_TEST_SHELL=/bin/zsh DOTFILES_TEST_ZDOTDIR="$malicious_zdotdir" \
 assert_zero "$CHECK_STATUS" 'optional tool success and warning checks'
 assert_file_absent "$malicious_zdot_marker" 'tmux startup executed inherited malicious ZDOTDIR'
 optional_log=$(cat "$optional_fixture/optional-tools.log")
-assert_contains 'nvim|-i NONE --headless +qa' "$optional_log" 'nvim isolated invocation'
+assert_contains 'nvim|-i NONE --headless' "$optional_log" 'nvim isolated invocation'
+assert_contains 'vim.v.errmsg' "$optional_log" 'nvim startup error guard invocation'
+assert_contains 'cquit' "$optional_log" 'nvim startup error guard exits nonzero'
 assert_contains 'tmux|-S /tmp/dc-tmux.' "$optional_log" 'tmux explicit short socket invocation'
-assert_contains 'new-session -d -s dotfiles-check-' "$optional_log" 'tmux detached session invocation'
+assert_contains '-f /dev/null new-session -d -s dotfiles-check-' "$optional_log" 'tmux safe detached session invocation'
+assert_contains 'source-file' "$optional_log" 'tmux explicitly sources tracked config'
 assert_contains 'kill-server' "$optional_log" 'tmux cleanup invocation'
 assert_contains 'SHELL=/bin/sh' "$optional_log" 'tmux controlled shell environment'
 assert_contains 'PATH=/usr/bin:/bin' "$optional_log" 'tmux controlled PATH environment'
@@ -511,6 +620,42 @@ assert_contains "gitleaks|git --no-banner --redact=100 --log-level warn $optiona
 assert_contains "brew|1|bundle check --file=$optional_fixture/home/.Brewfile" "$optional_log" 'brew no-update invocation'
 assert_contains 'WARN: Brewfile dependencies are not fully satisfied' "$CHECK_OUTPUT" 'unsatisfied Brewfile warning'
 
+printf 'this is not valid lua -- INVALID_NVIM_FIXTURE\n' > "$optional_fixture/home/.config/nvim/init.lua"
+run_check "$optional_fixture"
+assert_nonzero "$CHECK_STATUS" 'fake nvim startup error check'
+assert_contains 'FAIL: nvim headless startup failed' "$CHECK_OUTPUT" 'fake nvim startup error result'
+fixture_git "$optional_fixture" checkout -- .config/nvim/init.lua
+printf 'vim.g.fixture = true -- NVIM_DIAGNOSTIC_FIXTURE\n' > "$optional_fixture/home/.config/nvim/init.lua"
+run_check "$optional_fixture"
+assert_nonzero "$CHECK_STATUS" 'fake nvim error diagnostic check'
+assert_contains 'FAIL: nvim headless startup failed' "$CHECK_OUTPUT" 'fake nvim diagnostic result'
+fixture_git "$optional_fixture" checkout -- .config/nvim/init.lua
+
+printf 'unknown-fixture-command\n' > "$optional_fixture/home/.config/tmux/tmux.conf"
+run_check "$optional_fixture"
+assert_nonzero "$CHECK_STATUS" 'fake tmux tracked config error check'
+assert_contains 'FAIL: tmux tracked config failed to load' "$CHECK_OUTPUT" 'fake tmux tracked config error result'
+fixture_git "$optional_fixture" checkout -- .config/tmux/tmux.conf
+
+real_nvim=
+for candidate in /opt/homebrew/bin/nvim /usr/local/bin/nvim /usr/bin/nvim; do
+  if [[ -x $candidate ]]; then
+    real_nvim=$candidate
+    break
+  fi
+done
+if [[ -n $real_nvim ]]; then
+  make_fixture real-nvim-startup
+  real_nvim_fixture=$FIXTURE
+  ln -sf "$real_nvim" "$real_nvim_fixture/bin/nvim"
+  run_check "$real_nvim_fixture"
+  assert_zero "$CHECK_STATUS" 'real nvim valid isolated startup check'
+  printf 'this is not valid lua -- INVALID_NVIM_FIXTURE\n' > "$real_nvim_fixture/home/.config/nvim/init.lua"
+  run_check "$real_nvim_fixture"
+  assert_nonzero "$CHECK_STATUS" 'real nvim invalid init must fail although plain headless exits zero'
+  assert_contains 'FAIL: nvim headless startup failed' "$CHECK_OUTPUT" 'real nvim invalid init result'
+fi
+
 real_tmux=
 for candidate in /opt/homebrew/bin/tmux /usr/local/bin/tmux /usr/bin/tmux; do
   if [[ -x $candidate ]]; then
@@ -527,9 +672,13 @@ if [[ -n $real_tmux ]]; then
   short_tmux_before=$(/usr/bin/find /tmp -maxdepth 1 -type d -name 'dc-tmux.*' -print | LC_ALL=C sort)
   DOTFILES_TEST_TMPDIR="$long_tmux_tmp" run_check "$real_tmux_fixture"
   assert_zero "$CHECK_STATUS" 'real tmux with long macOS TMPDIR check'
-  assert_contains 'PASS: tmux starts on an isolated socket' "$CHECK_OUTPUT" 'real tmux startup result'
+  assert_contains 'PASS: tmux loads tracked config on an isolated socket' "$CHECK_OUTPUT" 'real tmux config load result'
   short_tmux_after=$(/usr/bin/find /tmp -maxdepth 1 -type d -name 'dc-tmux.*' -print | LC_ALL=C sort)
   assert_eq "$short_tmux_before" "$short_tmux_after" 'real tmux left a short socket directory'
+  printf 'unknown-fixture-command\n' > "$real_tmux_fixture/home/.config/tmux/tmux.conf"
+  DOTFILES_TEST_TMPDIR="$long_tmux_tmp" run_check "$real_tmux_fixture"
+  assert_nonzero "$CHECK_STATUS" 'real tmux unknown tracked command check'
+  assert_contains 'FAIL: tmux tracked config failed to load' "$CHECK_OUTPUT" 'real tmux unknown tracked command result'
 fi
 
 make_fixture "wrapper-'; : > wrapper-injected; #"

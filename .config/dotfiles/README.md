@@ -19,11 +19,11 @@ git clone git@github.com:aimdevlee/dotfiles.git dotfiles-bootstrap-tmp
 bootstrap_source=$(cd -- dotfiles-bootstrap-tmp && pwd)
 reviewed_head=$(git -C "$bootstrap_source" rev-parse HEAD)
 git -C "$bootstrap_source" status --short
-DOTFILES_SOURCE="$bootstrap_source/.git" DOTFILES_REMOTE="git@github.com:aimdevlee/dotfiles.git" "$bootstrap_source/.config/dotfiles/bootstrap" --dry-run
-DOTFILES_SOURCE="$bootstrap_source/.git" DOTFILES_REMOTE="git@github.com:aimdevlee/dotfiles.git" "$bootstrap_source/.config/dotfiles/bootstrap"
+DOTFILES_SOURCE="$bootstrap_source/.git" DOTFILES_SOURCE_REF="$reviewed_head" DOTFILES_REMOTE="git@github.com:aimdevlee/dotfiles.git" "$bootstrap_source/.config/dotfiles/bootstrap" --dry-run
+DOTFILES_SOURCE="$bootstrap_source/.git" DOTFILES_SOURCE_REF="$reviewed_head" DOTFILES_REMOTE="git@github.com:aimdevlee/dotfiles.git" "$bootstrap_source/.config/dotfiles/bootstrap"
 ```
 
-Record `reviewed_head` and inspect the clone and dry-run output first. Both bootstrap invocations clone only `DOTFILES_SOURCE` at that reviewed local HEAD, while the installed bare repository's final `origin` is the GitHub URL in `DOTFILES_REMOTE`; an upstream advance cannot change this placement. The second command is interactive: review every listed conflict and answer the confirmation prompt only when the proposed backup moves are correct. The temporary clone is not deleted automatically; clean it up manually after confirming the new placement works.
+Record `reviewed_head` and inspect the clone and dry-run output first. `DOTFILES_SOURCE_REF` must be the full commit OID reviewed in the temporary clone; both bootstrap invocations require that exact commit to remain present in `DOTFILES_SOURCE` and install its content even if the source branch advances between invocations. If `DOTFILES_SOURCE_REF` is omitted, each invocation uses the current symbolic HEAD of `DOTFILES_SOURCE` and does not claim reviewed-commit pinning. The installed bare repository's final `origin` is the GitHub URL in `DOTFILES_REMOTE`. The second command is interactive: review every listed conflict and answer the confirmation prompt only when the proposed backup moves are correct. The temporary clone is not deleted automatically; clean it up manually after confirming the new placement works.
 
 ## Conflicts and recovery
 
