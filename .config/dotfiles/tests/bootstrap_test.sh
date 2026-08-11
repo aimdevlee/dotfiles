@@ -27,6 +27,14 @@ assert_absent() {
   [[ ! -e $1 && ! -L $1 ]] || fail "expected path to be absent [$1]"
 }
 
+assert_not_contains() {
+  local needle=$1
+  local haystack=$2
+  local message=${3:-expected value not to contain substring}
+
+  [[ $haystack != *"$needle"* ]] || fail "$message: unexpectedly found [$needle] in [$haystack]"
+}
+
 assert_file_mode() {
   local expected=$1
   local path=$2
@@ -112,6 +120,26 @@ run_bootstrap_with_paths() {
   BOOTSTRAP_OUTPUT=$(/bin/cat "$output")
 }
 
+run_bootstrap_from_source() {
+  local home=$1
+  local remote=$2
+  local source=$3
+  shift 3
+  local output="$home.bootstrap-output"
+  local status
+
+  set +e
+  /usr/bin/env -i \
+    HOME="$home" PATH=/usr/bin:/bin LC_ALL=C \
+    DOTFILES_REMOTE="$remote" DOTFILES_SOURCE="$source" DOTFILES_GIT_DIR="$home/.cfg" DOTFILES_WORK_TREE="$home" \
+    XDG_STATE_HOME="$home/.state" DOTFILES_SKIP_PLATFORM_CHECK=1 \
+    "$bootstrap" "$@" > "$output" 2>&1
+  status=$?
+  set -e
+  BOOTSTRAP_STATUS=$status
+  BOOTSTRAP_OUTPUT=$(/bin/cat "$output")
+}
+
 make_remote clean
 clean_home="$TEST_ROOT/clean-home"
 /bin/mkdir "$clean_home"
@@ -131,6 +159,44 @@ assert_contains 'allowed_signers.local' "$BOOTSTRAP_OUTPUT" 'allowed signers cop
 assert_contains '.zshrc.local' "$BOOTSTRAP_OUTPUT" 'zsh copy instruction'
 assert_contains 'tmux-sessionizer.local.conf' "$BOOTSTRAP_OUTPUT" 'tmux-sessionizer local config copy instruction'
 [[ $BOOTSTRAP_OUTPUT != *brew* ]] || fail 'bootstrap must not install programs'
+
+make_remote reviewed-source
+printf 'reviewed commit A\n' > "$SOURCE/reviewed.txt"
+fixture_git -C "$SOURCE" add reviewed.txt
+fixture_git -C "$SOURCE" commit -qm 'reviewed commit A'
+fixture_git --git-dir="$REMOTE" fetch -q "$SOURCE" main:main
+reviewed_clone="$TEST_ROOT/reviewed-normal-clone"
+fixture_git clone -q "$REMOTE" "$reviewed_clone"
+reviewed_head=$(fixture_git -C "$reviewed_clone" rev-parse HEAD)
+printf 'remote advance B\n' > "$SOURCE/remote-advance.txt"
+fixture_git -C "$SOURCE" add remote-advance.txt
+fixture_git -C "$SOURCE" commit -qm 'remote advance B'
+fixture_git --git-dir="$REMOTE" fetch -q "$SOURCE" main:main
+remote_head=$(fixture_git --git-dir="$REMOTE" rev-parse refs/heads/main)
+[[ $reviewed_head != "$remote_head" ]] || fail 'reviewed source and final remote must diverge for source pinning'
+source_pinned_home="$TEST_ROOT/source-pinned-home"
+/bin/mkdir "$source_pinned_home"
+source_pinned_before=$(snapshot_tree "$source_pinned_home")
+run_bootstrap_from_source "$source_pinned_home" "$REMOTE" "$reviewed_clone/.git" --dry-run
+assert_eq 0 "$BOOTSTRAP_STATUS" "source-pinned dry-run succeeds: $BOOTSTRAP_OUTPUT"
+assert_eq "$source_pinned_before" "$(snapshot_tree "$source_pinned_home")" 'source-pinned dry-run changes nothing'
+assert_absent "$source_pinned_home/.cfg"
+assert_not_contains remote-advance.txt "$BOOTSTRAP_OUTPUT" 'source-pinned dry-run does not inspect final remote advance'
+run_bootstrap_from_source "$source_pinned_home" "$REMOTE" "$reviewed_clone/.git" --yes
+assert_eq 0 "$BOOTSTRAP_STATUS" "source-pinned bootstrap succeeds: $BOOTSTRAP_OUTPUT"
+assert_eq 'reviewed commit A' "$(<"$source_pinned_home/reviewed.txt")" 'source-pinned checkout uses reviewed commit'
+assert_absent "$source_pinned_home/remote-advance.txt"
+assert_eq "$reviewed_head" "$(fixture_git --git-dir="$source_pinned_home/.cfg" rev-parse HEAD)" 'dry-run and actual placement use the reviewed source HEAD'
+assert_eq "$REMOTE" "$(fixture_git --git-dir="$source_pinned_home/.cfg" config --get remote.origin.url)" 'source-pinned installation resets origin to final remote'
+
+invalid_source_home="$TEST_ROOT/invalid-source-home"
+/bin/mkdir "$invalid_source_home"
+invalid_source_before=$(snapshot_tree "$invalid_source_home")
+run_bootstrap_from_source "$invalid_source_home" "$REMOTE" "$TEST_ROOT/missing-reviewed-source" --dry-run
+[[ $BOOTSTRAP_STATUS -ne 0 ]] || fail 'missing DOTFILES_SOURCE must fail without falling back to the final remote'
+assert_contains 'bare clone failed' "$BOOTSTRAP_OUTPUT" 'missing DOTFILES_SOURCE failure is clear'
+assert_eq "$invalid_source_before" "$(snapshot_tree "$invalid_source_home")" 'invalid DOTFILES_SOURCE leaves worktree unchanged'
+assert_absent "$invalid_source_home/.cfg"
 
 identity_home="$TEST_ROOT/identity-home"
 /bin/mkdir "$identity_home"

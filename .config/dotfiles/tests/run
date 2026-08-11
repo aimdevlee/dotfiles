@@ -17,8 +17,19 @@ fi
 export DOTFILES_TEST_CONTEXT_MODE
 
 # Keep the documentation policy last, after the behavioral suites it describes.
-for test_script in ignore_test.sh shell_test.sh check_test.sh bootstrap_test.sh readme_test.sh; do
+required_test_scripts=(
+  "ignore_test.sh"
+  "shell_test.sh"
+  "check_test.sh"
+  "bootstrap_test.sh"
+  "readme_test.sh"
+)
+
+for test_script in "${required_test_scripts[@]}"; do
   test_path="$script_dir/$test_script"
-  [[ -x $test_path ]] || continue
+  if [[ ! -f $test_path || ! -x $test_path ]]; then
+    printf 'FAIL: required test is missing or not executable: %s\n' "$test_script" >&2
+    exit 1
+  fi
   "$test_path"
 done

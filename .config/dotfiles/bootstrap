@@ -62,12 +62,14 @@ elif [[ $(/usr/bin/uname -s 2>/dev/null) != Darwin || $(/usr/bin/uname -m 2>/dev
 fi
 
 DOTFILES_REMOTE=${DOTFILES_REMOTE:-git@github.com:aimdevlee/dotfiles.git}
+DOTFILES_SOURCE=${DOTFILES_SOURCE:-$DOTFILES_REMOTE}
 DOTFILES_GIT_DIR=${DOTFILES_GIT_DIR:-$HOME/.cfg}
 DOTFILES_WORK_TREE=${DOTFILES_WORK_TREE:-$HOME}
 BACKUP_ROOT=${XDG_STATE_HOME:-$HOME/.local/state}/dotfiles/backups
 
 [[ -n ${HOME:-} && $HOME == /* ]] || die 'HOME must be an absolute path'
 [[ -n $DOTFILES_REMOTE ]] || die 'DOTFILES_REMOTE must not be empty'
+[[ -n $DOTFILES_SOURCE ]] || die 'DOTFILES_SOURCE must not be empty'
 [[ $DOTFILES_WORK_TREE == /* ]] || die 'DOTFILES_WORK_TREE must be an absolute path'
 [[ $DOTFILES_GIT_DIR == /* ]] || die 'DOTFILES_GIT_DIR must be an absolute path'
 [[ $BACKUP_ROOT == /* ]] || die 'backup root must be an absolute path'
@@ -237,11 +239,14 @@ else
   CANDIDATE=$(/usr/bin/mktemp -d "$git_parent/$git_base.bootstrap.XXXXXX") || die 'cannot allocate guarded clone candidate'
   [[ ${CANDIDATE%/*} == "$git_parent" && ${CANDIDATE##*/} == "$git_base.bootstrap."* ]] || die 'unsafe clone candidate path'
   /bin/rmdir -- "$CANDIDATE" || die 'cannot prepare clone candidate'
-  if ! git_cmd clone --bare -- "$DOTFILES_REMOTE" "$CANDIDATE" >/dev/null 2>&1; then
+  if ! git_cmd clone --bare -- "$DOTFILES_SOURCE" "$CANDIDATE" >/dev/null 2>&1; then
     die 'bare clone failed'
   fi
   [[ $(git_cmd --git-dir="$CANDIDATE" config --bool core.bare 2>/dev/null || true) == true ]] || die 'clone candidate is not bare'
-  [[ $(git_cmd --git-dir="$CANDIDATE" config --get remote.origin.url 2>/dev/null || true) == "$DOTFILES_REMOTE" ]] || die 'clone candidate origin mismatch'
+  if ! git_cmd --git-dir="$CANDIDATE" remote set-url origin "$DOTFILES_REMOTE"; then
+    die 'cannot configure clone candidate final origin'
+  fi
+  [[ $(git_cmd --git-dir="$CANDIDATE" config --get remote.origin.url 2>/dev/null || true) == "$DOTFILES_REMOTE" ]] || die 'clone candidate final origin mismatch'
   CANDIDATE_EXPECTED_HEAD=$(git_cmd --git-dir="$CANDIDATE" rev-parse --verify 'HEAD^{commit}' 2>/dev/null) || die 'clone candidate HEAD is invalid'
   repo_dir=$CANDIDATE
 fi

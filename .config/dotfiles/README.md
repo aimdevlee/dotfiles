@@ -6,7 +6,7 @@ This is common portable configuration for personal and company Apple Silicon Mac
 
 ## Scope and prerequisites
 
-`bootstrap` does not install Homebrew, packages, or apps; does not manage private SSH keys; does not fetch unless `check --fetch` is requested; and does not commit, push, or run Git garbage collection. The first placement does need network access because it clones the configured remote; it never runs a separate `git fetch`.
+`bootstrap` does not install Homebrew, packages, or apps; does not manage private SSH keys; does not fetch unless `check --fetch` is requested; and does not commit, push, or run Git garbage collection. The first placement does need network access to obtain the temporary normal clone; bootstrap then clones the reviewed local source and never runs a separate `git fetch`.
 
 Before starting, use a Darwin arm64 (Apple Silicon) Mac with `/usr/bin/git`, a writable non-symlink HOME directory, SSH access to the remote, and enough disk space for a bare repository and backups. This project supports Darwin arm64 only; it does not claim success on other platforms.
 
@@ -16,36 +16,61 @@ The bootstrap script is itself inside the work tree it will place. Solve that ca
 
 ```sh
 git clone git@github.com:aimdevlee/dotfiles.git dotfiles-bootstrap-tmp
-./dotfiles-bootstrap-tmp/.config/dotfiles/bootstrap --dry-run
-./dotfiles-bootstrap-tmp/.config/dotfiles/bootstrap
+bootstrap_source=$(cd -- dotfiles-bootstrap-tmp && pwd)
+reviewed_head=$(git -C "$bootstrap_source" rev-parse HEAD)
+git -C "$bootstrap_source" status --short
+DOTFILES_SOURCE="$bootstrap_source/.git" DOTFILES_REMOTE="git@github.com:aimdevlee/dotfiles.git" "$bootstrap_source/.config/dotfiles/bootstrap" --dry-run
+DOTFILES_SOURCE="$bootstrap_source/.git" DOTFILES_REMOTE="git@github.com:aimdevlee/dotfiles.git" "$bootstrap_source/.config/dotfiles/bootstrap"
 ```
 
-Inspect the clone and dry-run output first. The second command is interactive: review every listed conflict and answer the confirmation prompt only when the proposed backup moves are correct. The temporary clone is not deleted automatically; clean it up manually after confirming the new placement works.
+Record `reviewed_head` and inspect the clone and dry-run output first. Both bootstrap invocations clone only `DOTFILES_SOURCE` at that reviewed local HEAD, while the installed bare repository's final `origin` is the GitHub URL in `DOTFILES_REMOTE`; an upstream advance cannot change this placement. The second command is interactive: review every listed conflict and answer the confirmation prompt only when the proposed backup moves are correct. The temporary clone is not deleted automatically; clean it up manually after confirming the new placement works.
 
 ## Conflicts and recovery
 
 Dry run makes zero changes and ends with `Dry run complete; no changes made.` A real run moves each conflicting tracked destination beneath `$HOME/.local/state/dotfiles/backups/<timestamp-pid>/` and asks `Move all listed conflicts to the one backup directory above? [y/N]` before moving anything.
 
-If checkout fails after moves, the checkout failure intentionally retains the backup. Resolve the destination first, then restore each named file from the timestamp printed by bootstrap, for example:
+If checkout fails after moves, the checkout failure intentionally retains the backup. Use the exact relative paths and backup path printed by bootstrap. Resolve the destination first; do not overwrite it. For the tracked example `.config/zsh/.zshrc`:
 
 ```sh
-/bin/mv -- "$HOME/.local/state/dotfiles/backups/<timestamp-pid>/.gitconfig.local" "$HOME/.gitconfig.local"
-/bin/mv -- "$HOME/.local/state/dotfiles/backups/<timestamp-pid>/.config/git/allowed_signers.local" "$HOME/.config/git/allowed_signers.local"
-/bin/mv -- "$HOME/.local/state/dotfiles/backups/<timestamp-pid>/.zshrc.local" "$HOME/.zshrc.local"
-/bin/mv -- "$HOME/.local/state/dotfiles/backups/<timestamp-pid>/.config/tmux-sessionizer/tmux-sessionizer.local.conf" "$HOME/.config/tmux-sessionizer/tmux-sessionizer.local.conf"
+backup_dir="$HOME/.local/state/dotfiles/backups/<timestamp-pid>"
+relative_path=".config/zsh/.zshrc"
+source="$backup_dir/$relative_path"
+destination="$HOME/$relative_path"
+if [[ -e "$destination" || -L "$destination" ]]; then
+  printf '%s\n' 'STOP: destination exists; compare it or move it separately before recovery.'
+else
+  /bin/mkdir -p -- "$(/usr/bin/dirname -- "$destination")"
+  /bin/mv -- "$source" "$destination"
+fi
 ```
 
 Backups are intentionally retained; inspect them before any manual cleanup.
 
 ## Local files and templates
 
-These files are machine-local: `~/.gitconfig.local`, `~/.config/git/allowed_signers.local`, `~/.zshrc.local`, and `~/.config/tmux-sessionizer/tmux-sessionizer.local.conf`. Create them only from the tracked templates:
+These files are machine-local: `~/.gitconfig.local`, `~/.config/git/allowed_signers.local`, `~/.zshrc.local`, and `~/.config/tmux-sessionizer/tmux-sessionizer.local.conf`. Create them only from the tracked templates. Every command below preserves an existing file and prints a skip instead of copying over it:
 
 ```sh
-/bin/cp -- ~/.config/dotfiles/templates/gitconfig.local.example ~/.gitconfig.local
-/bin/cp -- ~/.config/dotfiles/templates/allowed_signers.local.example ~/.config/git/allowed_signers.local
-/bin/cp -- ~/.config/dotfiles/templates/zshrc.local.example ~/.zshrc.local
-/bin/cp -- ~/.config/dotfiles/templates/tmux-sessionizer.local.conf.example ~/.config/tmux-sessionizer/tmux-sessionizer.local.conf
+if [[ ! -e "$HOME/.gitconfig.local" && ! -L "$HOME/.gitconfig.local" ]]; then
+  /bin/cp -- "$HOME/.config/dotfiles/templates/gitconfig.local.example" "$HOME/.gitconfig.local"
+else
+  printf '%s\n' 'SKIP: ~/.gitconfig.local already exists'
+fi
+if [[ ! -e "$HOME/.config/git/allowed_signers.local" && ! -L "$HOME/.config/git/allowed_signers.local" ]]; then
+  /bin/cp -- "$HOME/.config/dotfiles/templates/allowed_signers.local.example" "$HOME/.config/git/allowed_signers.local"
+else
+  printf '%s\n' 'SKIP: ~/.config/git/allowed_signers.local already exists'
+fi
+if [[ ! -e "$HOME/.zshrc.local" && ! -L "$HOME/.zshrc.local" ]]; then
+  /bin/cp -- "$HOME/.config/dotfiles/templates/zshrc.local.example" "$HOME/.zshrc.local"
+else
+  printf '%s\n' 'SKIP: ~/.zshrc.local already exists'
+fi
+if [[ ! -e "$HOME/.config/tmux-sessionizer/tmux-sessionizer.local.conf" && ! -L "$HOME/.config/tmux-sessionizer/tmux-sessionizer.local.conf" ]]; then
+  /bin/cp -- "$HOME/.config/dotfiles/templates/tmux-sessionizer.local.conf.example" "$HOME/.config/tmux-sessionizer/tmux-sessionizer.local.conf"
+else
+  printf '%s\n' 'SKIP: ~/.config/tmux-sessionizer/tmux-sessionizer.local.conf already exists'
+fi
 ```
 
 Edit every placeholder before use. Put personal values on a personal Mac and company values on a company Mac. Never commit local values, private material, or company material. No `includeIf` or profile switching is used.
@@ -58,19 +83,26 @@ The tracked Git configuration expects the public signing key at `~/.ssh/id_ed255
 principal[,principal...] ssh-ed25519 PUBLIC_KEY [comment]
 ```
 
-After editing the local templates, verify only local configuration and signatures:
+After editing the local templates, verify only local configuration and signatures immediately, without relying on a fresh shell:
 
 ```sh
-git config --global --includes --show-origin --get user.signingKey
-git config --global --includes --show-origin --get gpg.ssh.allowedSignersFile
-config verify-commit HEAD
+/usr/bin/git --git-dir="$HOME/.cfg" --work-tree="$HOME" config --global --includes --show-origin --get user.signingKey
+/usr/bin/git --git-dir="$HOME/.cfg" --work-tree="$HOME" config --global --includes --show-origin --get gpg.ssh.allowedSignersFile
+/usr/bin/git --git-dir="$HOME/.cfg" --work-tree="$HOME" verify-commit HEAD
 ```
 
 Local Git signature verification is distinct from any hosting-service badge or web verification.
 
 ## Daily workflow
 
-Use the bare-repository alias from the shell configuration for deliberate changes:
+Open a new terminal to load the shell configuration. If continuing in the current shell, define the alias and move to HOME before using relative paths:
+
+```sh
+alias config='/usr/bin/git --git-dir="$HOME/.cfg" --work-tree="$HOME"'
+cd "$HOME"
+```
+
+Use the bare-repository alias for deliberate changes:
 
 ```sh
 config status
@@ -94,7 +126,7 @@ Run the local validation after placing and editing local files:
 ~/.config/dotfiles/check --fetch
 ```
 
-`check` without `--fetch` is local and does not use the network or mutate the bare repository. `check --fetch` updates remote-tracking refs only and reports ahead/behind status; use it when a remote refresh is intended. PASS means a required check succeeded. WARN means an optional tool or dependency needs attention. FAIL means the check did not pass. Brew warnings never install anything.
+`check` without `--fetch` is local and does not use the network or mutate the bare repository. `check --fetch` updates remote-tracking refs and normal Git fetch metadata and may fetch tags, but never integrates the work tree or current branch; it reports ahead/behind status. Use it when a remote refresh is intended. PASS means a required check succeeded. WARN means an optional tool or dependency needs attention. FAIL means the check did not pass. Brew warnings never install anything.
 
 ## Re-run and company boundary
 
@@ -104,10 +136,11 @@ No company path, name, email, repository, certificate, or token belongs in track
 
 ## Development and acceptance
 
-Run the development suite from the dotfiles work tree:
+Run the development suite only from a temporary normal development clone or worktree, not from the installed bare HOME work tree:
 
 ```sh
+cd "$bootstrap_source"
 .config/dotfiles/tests/run
 ```
 
-Physical company-Mac acceptance is unverified until the user runs dry-run, interactive bootstrap, and `check` on that Mac.
+Installed users run `check`; they do not run the development suite. Physical company-Mac acceptance is unverified until the user runs dry-run, interactive bootstrap, and `check` on that Mac.
