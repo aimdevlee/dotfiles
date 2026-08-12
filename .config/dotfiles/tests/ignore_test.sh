@@ -13,6 +13,7 @@ ignored_paths=(
   .ssh/id_ed25519
   .zshrc.local
   .gitconfig.local
+  .Brewfile.local
   .env
   .env.company
   .config/git/allowed_signers.local
@@ -30,6 +31,38 @@ ignored_paths=(
 
 for path in "${ignored_paths[@]}"; do
   assert_ignored_by_worktree_policy "$repo_dir" "$work_tree" "$path"
+done
+
+assert_brewfile_line() {
+  local expected=$1
+  /usr/bin/grep -Fx -- "$expected" "$work_tree/.Brewfile" >/dev/null || \
+    fail "common Brewfile is missing: $expected"
+}
+
+assert_brewfile_absent() {
+  local unexpected=$1
+  if /usr/bin/grep -F -- "$unexpected" "$work_tree/.Brewfile" >/dev/null; then
+    fail "common Brewfile contains local or removed entry: $unexpected"
+  fi
+}
+
+for entry in \
+  'tap "jandedobbeleer/oh-my-posh"' \
+  'brew "bat"' 'brew "direnv"' 'brew "eza"' 'brew "fd"' 'brew "fzf"' \
+  'brew "gh"' 'brew "git-delta"' 'brew "gitleaks"' 'brew "jq"' \
+  'brew "lazygit"' 'brew "lua-language-server"' 'brew "mise"' 'brew "neovim"' \
+  'brew "ripgrep"' 'brew "stylua"' 'brew "tmux"' 'brew "tpm"' 'brew "tree"' \
+  'brew "zoxide"' 'brew "zsh-autosuggestions"' 'brew "zsh-completions"' \
+  'brew "zsh-syntax-highlighting"' 'brew "jandedobbeleer/oh-my-posh/oh-my-posh"' \
+  'cask "font-nanum-gothic-coding"' 'cask "font-plemol-jp-nf"' \
+  'cask "font-udev-gothic-nf"' 'cask "ghostty"' 'cask "karabiner-elements"' \
+  'cask "raycast"'; do
+  assert_brewfile_line "$entry"
+done
+
+for entry in nikitabobko aerospace awscli colima docker mysql peco saml2aws sops \
+  watchman yadm sequel-ace visual-studio-code 'args: ["HEAD"]'; do
+  assert_brewfile_absent "$entry"
 done
 
 assert_eq_quiet() {
