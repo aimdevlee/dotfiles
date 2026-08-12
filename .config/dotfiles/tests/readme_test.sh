@@ -17,6 +17,7 @@ else
 fi
 readme=${DOTFILES_README:-"$work_tree/.config/dotfiles/README.md"}
 runner="$work_tree/.config/dotfiles/tests/run"
+identity_sentinel='personal.identity@example.invalid'
 
 assert_readme_contains() {
   local expected=$1
@@ -158,7 +159,28 @@ assert_readme_excludes 'ssh-ed25519 AAAA' 'an actual-looking public SSH key'
 assert_readme_excludes 'ghp_' 'a GitHub token pattern'
 assert_readme_excludes 'github_pat_' 'a GitHub token pattern'
 
-assert_readme_excludes 'aimdevlee@gmail.com' 'the known personal email'
+assert_readme_excludes "$identity_sentinel" 'the synthetic identity sentinel'
+
+(
+  mutation_root=$(mktemp -d "${TMPDIR:-/tmp}/dotfiles-readme-mutation.XXXXXXXX")
+  cleanup_mutation() {
+    /bin/rm -rf -- "$mutation_root"
+  }
+  trap cleanup_mutation EXIT
+  mutated_readme="$mutation_root/README.md"
+  mutation_output="$mutation_root/output"
+  /bin/cp -- "$readme" "$mutated_readme"
+  printf '%s\n' "$identity_sentinel" >> "$mutated_readme"
+  readme=$mutated_readme
+  if assert_readme_excludes "$identity_sentinel" 'the synthetic identity sentinel' >"$mutation_output" 2>&1; then
+    fail 'README policy accepted the synthetic identity sentinel'
+    exit 1
+  fi
+  if ! /usr/bin/grep -Fq -- 'FAIL: README contains the synthetic identity sentinel' "$mutation_output"; then
+    fail 'README policy did not reject the synthetic identity sentinel'
+    exit 1
+  fi
+)
 
 if [[ ${DOTFILES_README_TEST_SIMULATION:-0} != 1 ]]; then
   simulation_root=$(mktemp -d "${TMPDIR:-/tmp}/dotfiles-readme-bare.XXXXXXXX")
