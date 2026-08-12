@@ -752,6 +752,13 @@ if [[ -n $real_tmux ]]; then
   DOTFILES_TEST_TMPDIR="$long_tmux_tmp" run_check "$real_tmux_fixture"
   assert_zero "$CHECK_STATUS" 'real tmux with long macOS TMPDIR check'
   assert_contains 'PASS: tmux loads tracked config on an isolated socket' "$CHECK_OUTPUT" 'real tmux config load result'
+  cp "$work_tree/.config/tmux/tmux.conf" "$real_tmux_fixture/home/.config/tmux/tmux.conf"
+  fixture_git "$real_tmux_fixture" add .config/tmux/tmux.conf
+  fixture_git "$real_tmux_fixture" commit -S -q -m 'exercise repository tmux config'
+  fixture_git "$real_tmux_fixture" update-ref refs/remotes/origin/main HEAD
+  DOTFILES_TEST_TMPDIR="$long_tmux_tmp" run_check "$real_tmux_fixture"
+  assert_zero "$CHECK_STATUS" 'real tmux loads the repository tracked config without shell environment'
+  assert_contains 'PASS: tmux loads tracked config on an isolated socket' "$CHECK_OUTPUT" 'repository tmux config load result'
   short_tmux_after=$(/usr/bin/find /tmp -maxdepth 1 -type d -name 'dc-tmux.*' -print | LC_ALL=C sort)
   assert_eq "$short_tmux_before" "$short_tmux_after" 'real tmux left a short socket directory'
   printf 'unknown-fixture-command\n' > "$real_tmux_fixture/home/.config/tmux/tmux.conf"
