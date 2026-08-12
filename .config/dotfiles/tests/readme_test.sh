@@ -107,6 +107,8 @@ for command in \
   'config status --short --untracked-files=all' \
   '~/.config/dotfiles/check' \
   '~/.config/dotfiles/check --fetch' \
+  'brew bundle install --file="$HOME/.Brewfile"' \
+  'brew bundle install --file="$HOME/.Brewfile.local"' \
   '.config/dotfiles/tests/run'; do
   assert_readme_contains "$command"
 done
@@ -139,6 +141,8 @@ for guidance in \
   'WARN means an optional tool or dependency needs attention' \
   'FAIL means the check did not pass' \
   'Brew warnings never install anything' \
+  'The local Brewfile is optional' \
+  'installation remains manual' \
   'physical company-Mac acceptance is unverified' \
   'no company path, name, email, repository, certificate, or token'; do
   assert_readme_mentions "$guidance"

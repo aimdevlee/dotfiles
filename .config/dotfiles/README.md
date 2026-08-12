@@ -128,6 +128,15 @@ Run the local validation after placing and editing local files:
 
 `check` without `--fetch` is local and does not use the network or mutate the bare repository. `check --fetch` updates remote-tracking refs and normal Git fetch metadata and may fetch tags, but never integrates the work tree or current branch; it reports ahead/behind status. Use it when a remote refresh is intended. PASS means a required check succeeded. WARN means an optional tool or dependency needs attention. FAIL means the check did not pass. Brew warnings never install anything.
 
+The tracked `~/.Brewfile` is the shared baseline for personal and company Macs. The ignored `~/.Brewfile.local` contains packages specific to one machine. The local Brewfile is optional; `check` validates it independently when present and silently skips it when absent. Package installation remains manual:
+
+```sh
+brew bundle install --file="$HOME/.Brewfile"
+brew bundle install --file="$HOME/.Brewfile.local"
+```
+
+Run only the command for a file whose declared packages you intend to install on that Mac.
+
 ## Re-run and company boundary
 
 For a safe re-run, start with the dry run again. A matching existing bare repository with unchanged tracked files can be placed repeatedly; differing tracked destinations stop for review rather than being overwritten. Recover with the retained backup commands above instead of resetting HOME.

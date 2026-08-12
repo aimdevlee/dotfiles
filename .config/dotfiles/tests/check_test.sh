@@ -663,6 +663,7 @@ make_fixture optional-tools
 optional_fixture=$FIXTURE
 make_optional_tool_wrappers "$optional_fixture"
 printf 'brew "fixture"\n' > "$optional_fixture/home/.Brewfile"
+printf 'brew "local-fixture"\n' > "$optional_fixture/home/.Brewfile.local"
 malicious_zdotdir="$TEST_ROOT/malicious-zdotdir"
 malicious_zdot_marker="$TEST_ROOT/malicious-zdot-ran"
 mkdir -p "$malicious_zdotdir"
@@ -697,7 +698,18 @@ assert_contains "trap 'handle_signal 130' INT" "$(cat "$check_script")" 'INT cle
 assert_contains "trap 'handle_signal 143' TERM" "$(cat "$check_script")" 'TERM cleanup trap structure'
 assert_contains "gitleaks|git --no-banner --redact=100 --log-level warn $optional_fixture/home/.cfg" "$optional_log" 'gitleaks redacted invocation'
 assert_contains "brew|1|bundle check --file=$optional_fixture/home/.Brewfile" "$optional_log" 'brew no-update invocation'
+assert_contains "brew|1|bundle check --file=$optional_fixture/home/.Brewfile.local" "$optional_log" 'local brew no-update invocation'
 assert_contains 'WARN: Brewfile dependencies are not fully satisfied' "$CHECK_OUTPUT" 'unsatisfied Brewfile warning'
+assert_contains 'WARN: local Brewfile dependencies are not fully satisfied' "$CHECK_OUTPUT" 'unsatisfied local Brewfile warning'
+
+rm "$optional_fixture/home/.Brewfile.local"
+: > "$optional_fixture/optional-tools.log"
+run_check "$optional_fixture"
+assert_zero "$CHECK_STATUS" 'missing optional local Brewfile check'
+optional_log=$(cat "$optional_fixture/optional-tools.log")
+assert_contains "brew|1|bundle check --file=$optional_fixture/home/.Brewfile" "$optional_log" 'common Brewfile remains checked without local file'
+assert_not_contains '.Brewfile.local' "$optional_log" 'missing local Brewfile invocation'
+assert_not_contains 'local Brewfile is unavailable' "$CHECK_OUTPUT" 'missing local Brewfile warning'
 
 printf 'this is not valid lua -- INVALID_NVIM_FIXTURE\n' > "$optional_fixture/home/.config/nvim/init.lua"
 run_check "$optional_fixture"

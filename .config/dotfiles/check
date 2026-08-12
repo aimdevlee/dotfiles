@@ -573,15 +573,29 @@ check_gitleaks() {
   fi
 }
 
+check_brewfile_dependencies() {
+  local brewfile=$1
+  local description=$2
+  local brew_executable=$3
+  local brew_path=$4
+
+  if PATH="$brew_path" HOMEBREW_NO_AUTO_UPDATE=1 "$brew_executable" bundle check --file="$brewfile" >/dev/null 2>&1; then
+    pass "$description dependencies are satisfied"
+  else
+    warn "$description dependencies are not fully satisfied"
+  fi
+}
+
 check_brewfile() {
-  local brewfile=
+  local common_brewfile=
+  local local_brewfile=$DOTFILES_WORK_TREE/.Brewfile.local
   local brew_executable
   local brew_path
 
   if [[ -f $DOTFILES_WORK_TREE/Brewfile ]]; then
-    brewfile=$DOTFILES_WORK_TREE/Brewfile
+    common_brewfile=$DOTFILES_WORK_TREE/Brewfile
   elif [[ -f $DOTFILES_WORK_TREE/.Brewfile ]]; then
-    brewfile=$DOTFILES_WORK_TREE/.Brewfile
+    common_brewfile=$DOTFILES_WORK_TREE/.Brewfile
   fi
 
   if ! resolve_executable brew; then
@@ -590,12 +604,13 @@ check_brewfile() {
   fi
   brew_executable=$RESOLVED_EXECUTABLE
   brew_path=${brew_executable%/*}:/usr/bin:/bin
-  if [[ -z $brewfile ]]; then
+  if [[ -z $common_brewfile ]]; then
     warn 'Brewfile is unavailable; skipped dependency check'
-  elif PATH="$brew_path" HOMEBREW_NO_AUTO_UPDATE=1 "$brew_executable" bundle check --file="$brewfile" >/dev/null 2>&1; then
-    pass 'Brewfile dependencies are satisfied'
   else
-    warn 'Brewfile dependencies are not fully satisfied'
+    check_brewfile_dependencies "$common_brewfile" 'Brewfile' "$brew_executable" "$brew_path"
+  fi
+  if [[ -f $local_brewfile ]]; then
+    check_brewfile_dependencies "$local_brewfile" 'local Brewfile' "$brew_executable" "$brew_path"
   fi
 }
 
