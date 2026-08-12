@@ -335,6 +335,36 @@ run_check() {
   CHECK_OUTPUT=$(cat "$output")
 }
 
+run_check_with_index_file() {
+  local fixture=$1
+  local index_file=$2
+  shift 2
+  local home="$fixture/home"
+  local output="$fixture.index-output"
+  local status
+
+  set +e
+  (
+    cd "$TEST_ROOT/run-cwd" || exit 1
+    env -i \
+      HOME="$home" \
+      XDG_CONFIG_HOME="$home/.config" \
+      PATH="$fixture/bin" \
+      LC_ALL=C \
+      TMPDIR="${TMPDIR:-/tmp}" \
+      GIT_INDEX_FILE="$index_file" \
+      DOTFILES_GIT_DIR="$home/.cfg" \
+      DOTFILES_WORK_TREE="$home" \
+      DOTFILES_SKIP_PLATFORM_CHECK=1 \
+      DOTFILES_TEST_HOSTILE_PATH_MARKER="$fixture/hostile-path-marker" \
+      "$check_script" "$@"
+  ) > "$output" 2>&1
+  status=$?
+  set -e
+  CHECK_STATUS=$status
+  CHECK_OUTPUT=$(cat "$output")
+}
+
 run_hostile_check() {
   local fixture=$1
   local hostile_count=${2:-1}
@@ -374,6 +404,23 @@ fixture_git() {
   local home="$fixture/home"
 
   run_sanitized_git "$home" --git-dir="$home/.cfg" --work-tree="$home" "$@"
+}
+
+fixture_git_with_index() {
+  local fixture=$1
+  local index_file=$2
+  shift 2
+  local home="$fixture/home"
+
+  /usr/bin/env -i \
+    HOME="$home" \
+    XDG_CONFIG_HOME="$home/.config" \
+    PATH=/usr/bin:/bin \
+    LC_ALL=C \
+    TMPDIR="$TEST_ROOT/git-tmp" \
+    GIT_CONFIG_NOSYSTEM=1 \
+    GIT_INDEX_FILE="$index_file" \
+    /usr/bin/git -c core.hooksPath=/dev/null --git-dir="$home/.cfg" --work-tree="$home" "$@"
 }
 
 snapshot_fixture() {
@@ -447,6 +494,38 @@ assert_contains '0 FAIL' "$CHECK_OUTPUT" 'complete fixture summary'
 assert_not_contains 'Sensitive Fixture Name' "$CHECK_OUTPUT" 'complete identity name redaction'
 assert_not_contains 'sensitive-fixture@example.invalid' "$CHECK_OUTPUT" 'complete identity email redaction'
 assert_file_absent "$complete_fixture/hostile-path-marker" 'complete check invoked hostile PATH bash/git'
+
+check_hostile_dirty_index="$TEST_ROOT/check-hostile-dirty.index"
+fixture_git_with_index "$complete_fixture" "$check_hostile_dirty_index" read-tree HEAD
+check_hostile_blob=$(printf 'hostile check alternate bytes\n' | fixture_git "$complete_fixture" hash-object -w --stdin)
+fixture_git_with_index "$complete_fixture" "$check_hostile_dirty_index" update-index \
+  --cacheinfo "100644,$check_hostile_blob,.zshenv"
+check_hostile_dirty_before=$(/usr/bin/shasum -a 256 "$check_hostile_dirty_index")
+run_check_with_index_file "$complete_fixture" "$check_hostile_dirty_index"
+assert_zero "$CHECK_STATUS" 'clean real index ignores hostile dirty alternate index'
+assert_eq "$check_hostile_dirty_before" "$(/usr/bin/shasum -a 256 "$check_hostile_dirty_index")" \
+  'check leaves hostile dirty alternate index unchanged'
+(
+  source "$lib_script"
+  DOTFILES_GIT_DIR="$complete_fixture/home/.cfg"
+  DOTFILES_WORK_TREE="$complete_fixture/home"
+  GIT_INDEX_FILE="$check_hostile_dirty_index"
+  export DOTFILES_GIT_DIR DOTFILES_WORK_TREE GIT_INDEX_FILE
+  dotgit diff --cached --quiet -- || fail 'dotgit inherited a hostile index injected after sourcing'
+)
+
+make_fixture real-staged-hostile-clean
+real_staged_fixture=$FIXTURE
+printf 'real staged bytes\n' >> "$real_staged_fixture/home/.zshenv"
+fixture_git "$real_staged_fixture" add .zshenv
+check_hostile_clean_index="$TEST_ROOT/check-hostile-clean.index"
+fixture_git_with_index "$real_staged_fixture" "$check_hostile_clean_index" read-tree HEAD
+check_hostile_clean_before=$(/usr/bin/shasum -a 256 "$check_hostile_clean_index")
+run_check_with_index_file "$real_staged_fixture" "$check_hostile_clean_index"
+assert_nonzero "$CHECK_STATUS" 'hostile clean alternate index cannot hide real staged changes'
+assert_contains 'FAIL: index has staged changes' "$CHECK_OUTPUT" 'check reports real staged state'
+assert_eq "$check_hostile_clean_before" "$(/usr/bin/shasum -a 256 "$check_hostile_clean_index")" \
+  'check leaves hostile clean alternate index unchanged'
 
 make_fixture default-no-fetch
 default_fixture=$FIXTURE

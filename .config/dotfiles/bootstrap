@@ -42,6 +42,8 @@ fi
 # operations. Git is intentionally pinned; PATH remains minimal for Git's ssh.
 unset CDPATH ENV BASH_ENV PERL5OPT PERL5LIB PERLLIB
 unset GIT_CONFIG GIT_CONFIG_SYSTEM GIT_CONFIG_PARAMETERS GIT_CONFIG_COUNT
+unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_INDEX_FILE
+unset GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES
 export PATH=/usr/bin:/bin
 export GIT_CONFIG_NOSYSTEM=1
 export GIT_CONFIG_GLOBAL=/dev/null
@@ -247,6 +249,13 @@ if [[ -e $git_dir_canonical || -L $git_dir_canonical ]]; then
   origin=$(git_cmd --git-dir="$git_dir_canonical" config --get remote.origin.url 2>/dev/null || true)
   [[ $origin == "$DOTFILES_REMOTE" ]] || die 'existing origin does not exactly match DOTFILES_REMOTE'
   git_cmd --git-dir="$git_dir_canonical" rev-parse --verify 'HEAD^{commit}' >/dev/null 2>&1 || die 'existing repository HEAD is invalid'
+  if git_cmd --git-dir="$git_dir_canonical" --work-tree="$work_tree_canonical" diff --cached --quiet --; then
+    :
+  else
+    staged_status=$?
+    [[ $staged_status -eq 1 ]] || die 'cannot inspect existing repository staged state'
+    die 'existing repository has staged changes; commit or unstage them before bootstrap'
+  fi
   existing_repo=1
   repo_dir=$git_dir_canonical
 else

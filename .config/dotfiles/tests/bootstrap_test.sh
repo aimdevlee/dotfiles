@@ -23,6 +23,21 @@ fixture_git() {
     /usr/bin/git -c core.hooksPath=/dev/null "$@"
 }
 
+fixture_git_with_index() {
+  local index_file=$1
+  shift
+
+  /usr/bin/env -i \
+    HOME="$TEST_ROOT/git-home" \
+    PATH=/usr/bin:/bin \
+    LC_ALL=C \
+    TMPDIR="$TEST_ROOT/git-tmp" \
+    GIT_CONFIG_NOSYSTEM=1 \
+    GIT_CONFIG_GLOBAL=/dev/null \
+    GIT_INDEX_FILE="$index_file" \
+    /usr/bin/git -c core.hooksPath=/dev/null "$@"
+}
+
 assert_absent() {
   [[ ! -e $1 && ! -L $1 ]] || fail "expected path to be absent [$1]"
 }
@@ -120,6 +135,27 @@ run_bootstrap_with_paths() {
   BOOTSTRAP_OUTPUT=$(/bin/cat "$output")
 }
 
+run_bootstrap_with_index_file() {
+  local home=$1
+  local remote=$2
+  local index_file=$3
+  shift 3
+  local output="$home.bootstrap-output"
+  local status
+
+  set +e
+  /usr/bin/env -i \
+    HOME="$home" PATH=/usr/bin:/bin LC_ALL=C \
+    GIT_INDEX_FILE="$index_file" \
+    DOTFILES_REMOTE="$remote" DOTFILES_GIT_DIR="$home/.cfg" DOTFILES_WORK_TREE="$home" \
+    XDG_STATE_HOME="$home/.state" DOTFILES_SKIP_PLATFORM_CHECK=1 \
+    "$bootstrap" "$@" > "$output" 2>&1
+  status=$?
+  set -e
+  BOOTSTRAP_STATUS=$status
+  BOOTSTRAP_OUTPUT=$(/bin/cat "$output")
+}
+
 run_bootstrap_from_source() {
   local home=$1
   local remote=$2
@@ -173,6 +209,71 @@ assert_absent "$clean_home/.zshrc.local"
 assert_absent "$clean_home/.config/tmux-sessionizer/tmux-sessionizer.local.conf"
 assert_contains '.gitconfig.local' "$BOOTSTRAP_OUTPUT" 'git identity copy instruction'
 assert_contains 'allowed_signers.local' "$BOOTSTRAP_OUTPUT" 'allowed signers copy instruction'
+
+fresh_hostile_home="$TEST_ROOT/fresh-hostile-index-home"
+fresh_external_index="$TEST_ROOT/fresh-hostile.index"
+/bin/mkdir "$fresh_hostile_home"
+run_bootstrap_with_index_file "$fresh_hostile_home" "$REMOTE" "$fresh_external_index" --yes
+assert_eq 0 "$BOOTSTRAP_STATUS" "fresh bootstrap ignores hostile external index: $BOOTSTRAP_OUTPUT"
+assert_absent "$fresh_external_index"
+assert_eq '' "$(fixture_git --git-dir="$fresh_hostile_home/.cfg" --work-tree="$fresh_hostile_home" status --short)" \
+  'fresh bootstrap leaves the real repository status clean'
+
+staged_home="$TEST_ROOT/staged-existing-home"
+/bin/cp -R "$clean_home" "$staged_home"
+staged_blob=$(printf 'unique staged bytes not in worktree\n' | fixture_git --git-dir="$staged_home/.cfg" hash-object -w --stdin)
+fixture_git --git-dir="$staged_home/.cfg" --work-tree="$staged_home" update-index \
+  --cacheinfo "100755,$staged_blob,tracked.txt"
+fixture_git --git-dir="$staged_home/.cfg" --work-tree="$staged_home" update-index --force-remove .config/dotfiles/check
+staged_index_before=$(/usr/bin/shasum -a 256 "$staged_home/.cfg/index")
+staged_cached_before=$(fixture_git --git-dir="$staged_home/.cfg" --work-tree="$staged_home" diff --cached --binary HEAD --)
+staged_before=$(snapshot_tree "$staged_home")
+run_bootstrap "$staged_home" "$REMOTE" --yes
+[[ $BOOTSTRAP_STATUS -ne 0 ]] || fail 'existing repository staged changes must reject bootstrap'
+assert_contains 'staged' "$BOOTSTRAP_OUTPUT" 'staged rejection is clear'
+assert_eq "$staged_index_before" "$(/usr/bin/shasum -a 256 "$staged_home/.cfg/index")" \
+  'staged rejection preserves index bytes'
+assert_eq "$staged_cached_before" \
+  "$(fixture_git --git-dir="$staged_home/.cfg" --work-tree="$staged_home" diff --cached --binary HEAD --)" \
+  'staged rejection preserves cached diff'
+assert_eq "$staged_before" "$(snapshot_tree "$staged_home")" \
+  'staged rejection preserves worktree, repository, and backup state'
+
+unstaged_home="$TEST_ROOT/unstaged-existing-home"
+/bin/cp -R "$clean_home" "$unstaged_home"
+printf 'unstaged bytes\n' >> "$unstaged_home/tracked.txt"
+unstaged_before=$(snapshot_tree "$unstaged_home")
+run_bootstrap "$unstaged_home" "$REMOTE" --yes
+[[ $BOOTSTRAP_STATUS -ne 0 ]] || fail 'existing repository unstaged changes must still reject bootstrap'
+assert_contains 'checkout is unsafe' "$BOOTSTRAP_OUTPUT" 'unstaged rejection remains clear'
+assert_eq "$unstaged_before" "$(snapshot_tree "$unstaged_home")" \
+  'unstaged rejection preserves worktree, repository, and backup state'
+
+hostile_clean_index="$TEST_ROOT/hostile-clean.index"
+fixture_git_with_index "$hostile_clean_index" --git-dir="$staged_home/.cfg" read-tree HEAD
+hostile_clean_before=$(/usr/bin/shasum -a 256 "$hostile_clean_index")
+run_bootstrap_with_index_file "$staged_home" "$REMOTE" "$hostile_clean_index" --yes
+[[ $BOOTSTRAP_STATUS -ne 0 ]] || fail 'hostile clean alternate index must not bypass real staged rejection'
+assert_contains 'staged' "$BOOTSTRAP_OUTPUT" 'real staged state wins over hostile clean alternate index'
+assert_eq "$hostile_clean_before" "$(/usr/bin/shasum -a 256 "$hostile_clean_index")" \
+  'rejected bootstrap leaves hostile clean alternate index unchanged'
+assert_eq "$staged_index_before" "$(/usr/bin/shasum -a 256 "$staged_home/.cfg/index")" \
+  'hostile clean alternate index cannot redirect staged-state validation'
+
+hostile_dirty_home="$TEST_ROOT/hostile-dirty-index-home"
+/bin/cp -R "$clean_home" "$hostile_dirty_home"
+hostile_dirty_index="$TEST_ROOT/hostile-dirty.index"
+fixture_git_with_index "$hostile_dirty_index" --git-dir="$hostile_dirty_home/.cfg" read-tree HEAD
+hostile_dirty_blob=$(printf 'hostile alternate-only bytes\n' | fixture_git --git-dir="$hostile_dirty_home/.cfg" hash-object -w --stdin)
+fixture_git_with_index "$hostile_dirty_index" --git-dir="$hostile_dirty_home/.cfg" update-index \
+  --cacheinfo "100644,$hostile_dirty_blob,tracked.txt"
+hostile_dirty_before=$(/usr/bin/shasum -a 256 "$hostile_dirty_index")
+run_bootstrap_with_index_file "$hostile_dirty_home" "$REMOTE" "$hostile_dirty_index" --yes
+assert_eq 0 "$BOOTSTRAP_STATUS" "clean real index ignores hostile dirty alternate: $BOOTSTRAP_OUTPUT"
+assert_eq "$hostile_dirty_before" "$(/usr/bin/shasum -a 256 "$hostile_dirty_index")" \
+  'successful bootstrap leaves hostile dirty alternate index unchanged'
+assert_eq '' "$(fixture_git --git-dir="$hostile_dirty_home/.cfg" --work-tree="$hostile_dirty_home" status --short)" \
+  'clean real repository remains clean under hostile dirty alternate index'
 assert_contains '.zshrc.local' "$BOOTSTRAP_OUTPUT" 'zsh copy instruction'
 assert_contains 'tmux-sessionizer.local.conf' "$BOOTSTRAP_OUTPUT" 'tmux-sessionizer local config copy instruction'
 [[ $BOOTSTRAP_OUTPUT != *brew* ]] || fail 'bootstrap must not install programs'

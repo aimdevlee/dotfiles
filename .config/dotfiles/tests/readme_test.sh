@@ -158,10 +158,7 @@ assert_readme_excludes 'ssh-ed25519 AAAA' 'an actual-looking public SSH key'
 assert_readme_excludes 'ghp_' 'a GitHub token pattern'
 assert_readme_excludes 'github_pat_' 'a GitHub token pattern'
 
-personal_email=$(git config --global --get user.email || true)
-if [[ -n $personal_email ]]; then
-  assert_readme_excludes "$personal_email" 'the configured personal email'
-fi
+assert_readme_excludes 'aimdevlee@gmail.com' 'the known personal email'
 
 if [[ ${DOTFILES_README_TEST_SIMULATION:-0} != 1 ]]; then
   simulation_root=$(mktemp -d "${TMPDIR:-/tmp}/dotfiles-readme-bare.XXXXXXXX")
@@ -170,17 +167,27 @@ if [[ ${DOTFILES_README_TEST_SIMULATION:-0} != 1 ]]; then
   }
   trap cleanup_simulation EXIT
   simulation_home="$simulation_root/home"
+  hostile_home="$simulation_root/hostile-home"
+  empty_home="$simulation_root/empty-home"
   simulation_source=$(/usr/bin/git --git-dir="$repo_dir" rev-parse --git-common-dir)
-  /bin/mkdir -p "$simulation_home/.config/dotfiles/tests"
+  /bin/mkdir -p "$simulation_home/.config/dotfiles/tests" "$hostile_home" "$empty_home"
+  printf '%s\n' '[user]' '  email = git@github.com' > "$hostile_home/.gitconfig"
   /usr/bin/git clone --bare -q -- "$simulation_source" "$simulation_home/.cfg"
   /usr/bin/git --git-dir="$simulation_home/.cfg" --work-tree="$simulation_home" checkout -q -f HEAD --
   /bin/cp -- "$readme" "$simulation_home/.config/dotfiles/README.md"
   /bin/cp -- "$runner" "$simulation_home/.config/dotfiles/tests/run"
-  DOTFILES_WORK_TREE="$simulation_home" \
-    DOTFILES_GIT_DIR="$simulation_home/.cfg" \
-    DOTFILES_README="$simulation_home/.config/dotfiles/README.md" \
-    DOTFILES_README_TEST_SIMULATION=1 \
-    "$script_dir/readme_test.sh"
+  for isolated_home in "$hostile_home" "$empty_home"; do
+    /usr/bin/env -i \
+      HOME="$isolated_home" \
+      XDG_CONFIG_HOME="$isolated_home/.config" \
+      PATH=/usr/bin:/bin \
+      LC_ALL=C \
+      DOTFILES_WORK_TREE="$simulation_home" \
+      DOTFILES_GIT_DIR="$simulation_home/.cfg" \
+      DOTFILES_README="$simulation_home/.config/dotfiles/README.md" \
+      DOTFILES_README_TEST_SIMULATION=1 \
+      "$script_dir/readme_test.sh"
+  done
 fi
 
 printf 'PASS: README documentation policy\n'
