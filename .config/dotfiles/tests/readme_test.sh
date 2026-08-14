@@ -89,13 +89,13 @@ for command in \
   'reviewed_head=$(git -C "$bootstrap_source" rev-parse HEAD)' \
   'DOTFILES_SOURCE="$bootstrap_source/.git" DOTFILES_SOURCE_REF="$reviewed_head" DOTFILES_REMOTE="git@github.com:aimdevlee/dotfiles.git" "$bootstrap_source/.config/dotfiles/bootstrap" --dry-run' \
   'DOTFILES_SOURCE="$bootstrap_source/.git" DOTFILES_SOURCE_REF="$reviewed_head" DOTFILES_REMOTE="git@github.com:aimdevlee/dotfiles.git" "$bootstrap_source/.config/dotfiles/bootstrap"' \
-  'if [[ ! -e "$HOME/.gitconfig.local" && ! -L "$HOME/.gitconfig.local" ]]; then' \
+  'if [[ ! -e "$HOME/.config/git/config.local" && ! -L "$HOME/.config/git/config.local" ]]; then' \
   'if [[ ! -e "$HOME/.config/git/allowed_signers.local" && ! -L "$HOME/.config/git/allowed_signers.local" ]]; then' \
-  'if [[ ! -e "$HOME/.zshrc.local" && ! -L "$HOME/.zshrc.local" ]]; then' \
+  'if [[ ! -e "$HOME/.config/zsh/.zshrc.local" && ! -L "$HOME/.config/zsh/.zshrc.local" ]]; then' \
   'if [[ ! -e "$HOME/.config/tmux-sessionizer/tmux-sessionizer.local.conf" && ! -L "$HOME/.config/tmux-sessionizer/tmux-sessionizer.local.conf" ]]; then' \
-  '  /bin/cp -- "$HOME/.config/dotfiles/templates/gitconfig.local.example" "$HOME/.gitconfig.local"' \
+  '  /bin/cp -- "$HOME/.config/dotfiles/templates/gitconfig.local.example" "$HOME/.config/git/config.local"' \
   '  /bin/cp -- "$HOME/.config/dotfiles/templates/allowed_signers.local.example" "$HOME/.config/git/allowed_signers.local"' \
-  '  /bin/cp -- "$HOME/.config/dotfiles/templates/zshrc.local.example" "$HOME/.zshrc.local"' \
+  '  /bin/cp -- "$HOME/.config/dotfiles/templates/zshrc.local.example" "$HOME/.config/zsh/.zshrc.local"' \
   '  /bin/cp -- "$HOME/.config/dotfiles/templates/tmux-sessionizer.local.conf.example" "$HOME/.config/tmux-sessionizer/tmux-sessionizer.local.conf"' \
   'cd "$HOME"' \
   'alias config='"'"'/usr/bin/git --git-dir="$HOME/.cfg" --work-tree="$HOME"'"'"'' \

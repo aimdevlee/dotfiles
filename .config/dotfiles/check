@@ -251,7 +251,7 @@ check_tracked_status() {
 }
 
 check_identity_and_signing() {
-  local local_config=$DOTFILES_WORK_TREE/.gitconfig.local
+  local local_config=$DOTFILES_WORK_TREE/.config/git/config.local
   local name
   local email
   local signing_key

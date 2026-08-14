@@ -128,7 +128,7 @@ write_common_config() {
     '[user]' \
     '  useConfigOnly = true' \
     '[include]' \
-    '  path = ~/.gitconfig.local' \
+    '  path = ~/.config/git/config.local' \
     '[gpg]' \
     '  format = ssh' \
     '[commit]' \
@@ -144,7 +144,7 @@ write_local_config() {
     '  email = sensitive-fixture@example.invalid' \
     '  signingKey = ~/.ssh/id_ed25519.pub' \
     '[gpg "ssh"]' \
-    '  allowedSignersFile = ~/.config/git/allowed_signers.local' > "$home/.gitconfig.local"
+    '  allowedSignersFile = ~/.config/git/allowed_signers.local' > "$home/.config/git/config.local"
 }
 
 run_sanitized_git() {
@@ -259,7 +259,7 @@ make_bootstrapped_fixture() {
     '[user]' \
     '  useConfigOnly = true' \
     '[include]' \
-    '  path = ~/.gitconfig.local' \
+    '  path = ~/.config/git/config.local' \
     '[gpg]' \
     '  format = ssh' \
     '[commit]' \
@@ -490,7 +490,7 @@ assert_file_absent "$ambient_hook_marker" 'fixture creation executed an ambient 
 
 make_fixture missing-identity
 missing_identity_fixture=$FIXTURE
-rm "$missing_identity_fixture/home/.gitconfig.local"
+rm "$missing_identity_fixture/home/.config/git/config.local"
 run_check "$missing_identity_fixture"
 assert_nonzero "$CHECK_STATUS" 'missing local identity check'
 assert_contains 'FAIL:' "$CHECK_OUTPUT" 'missing identity result'

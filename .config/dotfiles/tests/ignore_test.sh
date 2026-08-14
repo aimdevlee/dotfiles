@@ -11,8 +11,8 @@ ignored_paths=(
   .cfg/HEAD
   .ssh/config
   .ssh/id_ed25519
-  .zshrc.local
-  .gitconfig.local
+  .config/zsh/.zshrc.local
+  .config/git/config.local
   .Brewfile.local
   .env
   .env.company
@@ -99,7 +99,7 @@ assert_common_git_config_policy() {
     fail 'tracked Git config must include a local identity file'
     return 1
   fi
-  assert_eq_quiet '~/.gitconfig.local' "$value" 'tracked Git config must include ~/.gitconfig.local' || return 1
+  assert_eq_quiet '~/.config/git/config.local' "$value" 'tracked Git config must include ~/.config/git/config.local' || return 1
 }
 
 canonical_file_path() {
@@ -118,7 +118,7 @@ fixture_home="$TEST_ROOT/home"
 fixture_xdg_config="$fixture_home/.config"
 fixture_key="$fixture_home/.ssh/id_ed25519"
 fixture_common_config="$fixture_xdg_config/git/config"
-fixture_local_config="$fixture_home/.gitconfig.local"
+fixture_local_config="$fixture_home/.config/git/config.local"
 fixture_allowed_signers="$fixture_xdg_config/git/allowed_signers.local"
 
 cleanup_fixture() {

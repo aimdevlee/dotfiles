@@ -5,8 +5,8 @@
 .DS_Store
 
 # machine-local shell and Git configuration
-/.zshrc.local
-/.gitconfig.local
+/.config/zsh/.zshrc.local
+/.config/git/config.local
 /.Brewfile.local
 /.config/git/allowed_signers.local
 /.config/tmux-sessionizer/tmux-sessionizer.local.conf

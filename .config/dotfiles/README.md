@@ -48,23 +48,23 @@ Backups are intentionally retained; inspect them before any manual cleanup.
 
 ## Local files and templates
 
-These files are machine-local: `~/.gitconfig.local`, `~/.config/git/allowed_signers.local`, `~/.zshrc.local`, and `~/.config/tmux-sessionizer/tmux-sessionizer.local.conf`. Create them only from the tracked templates. Every command below preserves an existing file and prints a skip instead of copying over it:
+These files are machine-local: `~/.config/git/config.local`, `~/.config/git/allowed_signers.local`, `~/.config/zsh/.zshrc.local`, and `~/.config/tmux-sessionizer/tmux-sessionizer.local.conf`. Create them only from the tracked templates. Every command below preserves an existing file and prints a skip instead of copying over it:
 
 ```sh
-if [[ ! -e "$HOME/.gitconfig.local" && ! -L "$HOME/.gitconfig.local" ]]; then
-  /bin/cp -- "$HOME/.config/dotfiles/templates/gitconfig.local.example" "$HOME/.gitconfig.local"
+if [[ ! -e "$HOME/.config/git/config.local" && ! -L "$HOME/.config/git/config.local" ]]; then
+  /bin/cp -- "$HOME/.config/dotfiles/templates/gitconfig.local.example" "$HOME/.config/git/config.local"
 else
-  printf '%s\n' 'SKIP: ~/.gitconfig.local already exists'
+  printf '%s\n' 'SKIP: ~/.config/git/config.local already exists'
 fi
 if [[ ! -e "$HOME/.config/git/allowed_signers.local" && ! -L "$HOME/.config/git/allowed_signers.local" ]]; then
   /bin/cp -- "$HOME/.config/dotfiles/templates/allowed_signers.local.example" "$HOME/.config/git/allowed_signers.local"
 else
   printf '%s\n' 'SKIP: ~/.config/git/allowed_signers.local already exists'
 fi
-if [[ ! -e "$HOME/.zshrc.local" && ! -L "$HOME/.zshrc.local" ]]; then
-  /bin/cp -- "$HOME/.config/dotfiles/templates/zshrc.local.example" "$HOME/.zshrc.local"
+if [[ ! -e "$HOME/.config/zsh/.zshrc.local" && ! -L "$HOME/.config/zsh/.zshrc.local" ]]; then
+  /bin/cp -- "$HOME/.config/dotfiles/templates/zshrc.local.example" "$HOME/.config/zsh/.zshrc.local"
 else
-  printf '%s\n' 'SKIP: ~/.zshrc.local already exists'
+  printf '%s\n' 'SKIP: ~/.config/zsh/.zshrc.local already exists'
 fi
 if [[ ! -e "$HOME/.config/tmux-sessionizer/tmux-sessionizer.local.conf" && ! -L "$HOME/.config/tmux-sessionizer/tmux-sessionizer.local.conf" ]]; then
   /bin/cp -- "$HOME/.config/dotfiles/templates/tmux-sessionizer.local.conf.example" "$HOME/.config/tmux-sessionizer/tmux-sessionizer.local.conf"

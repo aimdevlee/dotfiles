@@ -203,12 +203,17 @@ assert_eq "$clean_head" "$(fixture_git --git-dir="$clean_home/.cfg" rev-parse re
 assert_eq "$clean_head" "$(fixture_git --git-dir="$clean_home/.cfg" rev-parse '@{upstream}')" \
   'fresh bootstrap creates a resolvable upstream'
 assert_contains 'platform check skipped by explicit test override' "$BOOTSTRAP_OUTPUT" 'test-only platform warning'
-assert_absent "$clean_home/.gitconfig.local"
+assert_absent "$clean_home/.config/git/config.local"
 assert_absent "$clean_home/.config/git/allowed_signers.local"
-assert_absent "$clean_home/.zshrc.local"
+assert_absent "$clean_home/.config/zsh/.zshrc.local"
 assert_absent "$clean_home/.config/tmux-sessionizer/tmux-sessionizer.local.conf"
-assert_contains '.gitconfig.local' "$BOOTSTRAP_OUTPUT" 'git identity copy instruction'
+assert_contains "/bin/cp -- $clean_home/.config/dotfiles/templates/gitconfig.local.example $clean_home/.config/git/config.local" \
+  "$BOOTSTRAP_OUTPUT" 'git identity copy instruction'
 assert_contains 'allowed_signers.local' "$BOOTSTRAP_OUTPUT" 'allowed signers copy instruction'
+assert_contains "/bin/cp -- $clean_home/.config/dotfiles/templates/zshrc.local.example $clean_home/.config/zsh/.zshrc.local" \
+  "$BOOTSTRAP_OUTPUT" 'zsh copy instruction'
+assert_contains 'tmux-sessionizer.local.conf' "$BOOTSTRAP_OUTPUT" 'tmux-sessionizer local config copy instruction'
+[[ $BOOTSTRAP_OUTPUT != *brew* ]] || fail 'bootstrap must not install programs'
 
 fresh_hostile_home="$TEST_ROOT/fresh-hostile-index-home"
 fresh_external_index="$TEST_ROOT/fresh-hostile.index"
@@ -274,10 +279,6 @@ assert_eq "$hostile_dirty_before" "$(/usr/bin/shasum -a 256 "$hostile_dirty_inde
   'successful bootstrap leaves hostile dirty alternate index unchanged'
 assert_eq '' "$(fixture_git --git-dir="$hostile_dirty_home/.cfg" --work-tree="$hostile_dirty_home" status --short)" \
   'clean real repository remains clean under hostile dirty alternate index'
-assert_contains '.zshrc.local' "$BOOTSTRAP_OUTPUT" 'zsh copy instruction'
-assert_contains 'tmux-sessionizer.local.conf' "$BOOTSTRAP_OUTPUT" 'tmux-sessionizer local config copy instruction'
-[[ $BOOTSTRAP_OUTPUT != *brew* ]] || fail 'bootstrap must not install programs'
-
 make_remote reviewed-source
 printf 'reviewed commit A\n' > "$SOURCE/reviewed.txt"
 fixture_git -C "$SOURCE" add reviewed.txt
@@ -349,17 +350,18 @@ done
 
 identity_home="$TEST_ROOT/identity-home"
 /bin/mkdir "$identity_home"
-printf '[user]\n  name = Local Fixture\n' > "$identity_home/.gitconfig.local"
+/bin/mkdir -p "$identity_home/.config/git"
+printf '[user]\n  name = Local Fixture\n' > "$identity_home/.config/git/config.local"
 run_bootstrap "$identity_home" "$REMOTE" --yes
 assert_eq 0 "$BOOTSTRAP_STATUS" 'bootstrap with local identity succeeds'
 assert_contains "fixture check from $identity_home/.config/dotfiles/check" "$BOOTSTRAP_OUTPUT" \
   'check runs from the checked-out fixture, not the real home'
 assert_absent "$identity_home/.config/git/allowed_signers.local"
-assert_absent "$identity_home/.zshrc.local"
+assert_absent "$identity_home/.config/zsh/.zshrc.local"
 assert_absent "$identity_home/.config/tmux-sessionizer/tmux-sessionizer.local.conf"
 assert_contains "/bin/cp -- $identity_home/.config/dotfiles/templates/allowed_signers.local.example $identity_home/.config/git/allowed_signers.local" \
   "$BOOTSTRAP_OUTPUT" 'missing allowed signers template hint with existing identity'
-assert_contains "/bin/cp -- $identity_home/.config/dotfiles/templates/zshrc.local.example $identity_home/.zshrc.local" \
+assert_contains "/bin/cp -- $identity_home/.config/dotfiles/templates/zshrc.local.example $identity_home/.config/zsh/.zshrc.local" \
   "$BOOTSTRAP_OUTPUT" 'missing zsh template hint with existing identity'
 assert_contains "/bin/cp -- $identity_home/.config/dotfiles/templates/tmux-sessionizer.local.conf.example $identity_home/.config/tmux-sessionizer/tmux-sessionizer.local.conf" \
   "$BOOTSTRAP_OUTPUT" 'missing tmux-sessionizer template hint with existing identity'

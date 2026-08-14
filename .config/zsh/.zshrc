@@ -57,4 +57,4 @@ if (( $+commands[mise] )); then
 fi
 
 # Source local configuration if exists (contains sensitive functions)
-[[ -r "$HOME/.zshrc.local" ]] && source "$HOME/.zshrc.local"
+[[ -r "$ZDOTDIR/.zshrc.local" ]] && source "$ZDOTDIR/.zshrc.local"

@@ -149,7 +149,7 @@ fi
 assert_eq 'shell-loaded' "$(cat "$zsh_stdout")" 'isolated zsh startup marker'
 assert_eq '' "$(cat "$zsh_stderr")" 'isolated zsh startup stderr'
 
-printf "export DOTFILES_LOCAL_LOADED=yes\nalias config='local-config'\n" > "$zsh_home/.zshrc.local"
+printf "export DOTFILES_LOCAL_LOADED=yes\nalias config='local-config'\n" > "$zsh_home/.config/zsh/.zshrc.local"
 if ! run_isolated_zsh_startup "$zsh_home" "$zsh_stdout" "$zsh_stderr" 'print "$DOTFILES_LOCAL_LOADED"'; then
   fail "isolated local override startup failed: $(cat "$zsh_stderr")"
 fi
