@@ -26,6 +26,17 @@ have() {
 dotgit() (
   local dotfiles_git_dir=${DOTFILES_GIT_DIR:-$HOME/.cfg}
   local dotfiles_work_tree=${DOTFILES_WORK_TREE:-$HOME}
+  local dotfiles_cwd
+
+  dotfiles_cwd=$(pwd -P) || return 1
+  case $dotfiles_git_dir in
+    /*) ;;
+    *) dotfiles_git_dir=$dotfiles_cwd/$dotfiles_git_dir ;;
+  esac
+  case $dotfiles_work_tree in
+    /*) ;;
+    *) dotfiles_work_tree=$dotfiles_cwd/$dotfiles_work_tree ;;
+  esac
 
   unset GIT_CONFIG GIT_CONFIG_GLOBAL GIT_CONFIG_SYSTEM GIT_CONFIG_PARAMETERS GIT_CONFIG_COUNT
   unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_INDEX_FILE

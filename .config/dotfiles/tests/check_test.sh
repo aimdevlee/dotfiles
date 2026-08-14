@@ -528,6 +528,23 @@ assert_eq "$nested_check_cwd" "$CHECK_CWD_BEFORE" 'nested invalid check starts i
 assert_eq "$nested_check_cwd" "$CHECK_CWD_AFTER" 'nested invalid check leaves requested directory unchanged'
 fixture_git "$complete_fixture" checkout -- .config/dotfiles/tests/run
 
+(
+  source "$lib_script"
+  cd "$TEST_ROOT" || exit 1
+  relative_work_tree="${complete_fixture#"$TEST_ROOT"/}/home"
+  relative_git_dir="$relative_work_tree/.cfg"
+  DOTFILES_GIT_DIR=$relative_git_dir
+  DOTFILES_WORK_TREE=$relative_work_tree
+  export DOTFILES_GIT_DIR DOTFILES_WORK_TREE
+  if relative_top=$(dotgit rev-parse --show-toplevel 2>&1); then
+    expected_top=$(cd "$complete_fixture/home" && pwd)
+    actual_top=$(cd "$relative_top" && pwd)
+    assert_eq "$expected_top" "$actual_top" 'relative Git overrides resolve from caller CWD'
+  else
+    fail "relative Git overrides failed: $relative_top"
+  fi
+)
+
 check_hostile_dirty_index="$TEST_ROOT/check-hostile-dirty.index"
 fixture_git_with_index "$complete_fixture" "$check_hostile_dirty_index" read-tree HEAD
 check_hostile_blob=$(printf 'hostile check alternate bytes\n' | fixture_git "$complete_fixture" hash-object -w --stdin)
