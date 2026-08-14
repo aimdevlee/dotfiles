@@ -509,6 +509,14 @@ assert_not_contains 'Sensitive Fixture Name' "$CHECK_OUTPUT" 'complete identity 
 assert_not_contains 'sensitive-fixture@example.invalid' "$CHECK_OUTPUT" 'complete identity email redaction'
 assert_file_absent "$complete_fixture/hostile-path-marker" 'complete check invoked hostile PATH bash/git'
 
+root_check_cwd="$complete_fixture/home"
+run_check_at_cwd "$complete_fixture" "$root_check_cwd"
+assert_zero "$CHECK_STATUS" 'complete fixture check from work-tree root'
+assert_contains 'PASS: tracked Zsh files pass syntax checks' "$CHECK_OUTPUT" \
+  'root check reports tracked Zsh syntax success'
+assert_contains 'PASS: tracked dotfiles Bash scripts pass syntax checks' "$CHECK_OUTPUT" \
+  'root check reports tracked Bash syntax success'
+
 nested_check_cwd="$complete_fixture/home/.config/dotfiles"
 run_check_at_cwd "$complete_fixture" "$nested_check_cwd"
 assert_zero "$CHECK_STATUS" 'complete fixture check from nested dotfiles directory'
@@ -530,6 +538,17 @@ fixture_git "$complete_fixture" checkout -- .config/dotfiles/tests/run
 
 (
   source "$lib_script"
+  DOTFILES_GIT_DIR="$complete_fixture/home/.cfg"
+  DOTFILES_WORK_TREE="$complete_fixture/home"
+  export DOTFILES_GIT_DIR DOTFILES_WORK_TREE
+  direct_cwd_before=$(pwd -P) || exit 1
+  dotgit rev-parse --is-bare-repository >/dev/null || fail 'direct dotgit call failed'
+  direct_cwd_after=$(pwd -P) || exit 1
+  assert_eq "$direct_cwd_before" "$direct_cwd_after" 'direct dotgit call preserves caller CWD'
+)
+
+(
+  source "$lib_script"
   cd "$TEST_ROOT" || exit 1
   relative_work_tree="${complete_fixture#"$TEST_ROOT"/}/home"
   relative_git_dir="$relative_work_tree/.cfg"
@@ -542,6 +561,26 @@ fixture_git "$complete_fixture" checkout -- .config/dotfiles/tests/run
     assert_eq "$expected_top" "$actual_top" 'relative Git overrides resolve from caller CWD'
   else
     fail "relative Git overrides failed: $relative_top"
+  fi
+)
+
+(
+  source "$lib_script"
+  absolute_git_dir="$complete_fixture/home/.cfg"
+  absolute_work_tree="$complete_fixture/home"
+  deleted_cwd="$TEST_ROOT/deleted-dotgit-cwd"
+  mkdir -p "$deleted_cwd"
+  cd "$deleted_cwd" || exit 1
+  /bin/rmdir "$deleted_cwd"
+  DOTFILES_GIT_DIR=$absolute_git_dir
+  DOTFILES_WORK_TREE=$absolute_work_tree
+  export DOTFILES_GIT_DIR DOTFILES_WORK_TREE
+  if absolute_top=$(dotgit rev-parse --show-toplevel 2>&1); then
+    expected_top=$(cd "$absolute_work_tree" && pwd)
+    actual_top=$(cd "$absolute_top" && pwd)
+    assert_eq "$expected_top" "$actual_top" 'absolute Git overrides work from deleted CWD'
+  else
+    fail "absolute Git overrides failed from deleted CWD: $absolute_top"
   fi
 )
 
