@@ -24,14 +24,18 @@ have() {
 }
 
 dotgit() (
+  local dotfiles_git_dir=${DOTFILES_GIT_DIR:-$HOME/.cfg}
+  local dotfiles_work_tree=${DOTFILES_WORK_TREE:-$HOME}
+
   unset GIT_CONFIG GIT_CONFIG_GLOBAL GIT_CONFIG_SYSTEM GIT_CONFIG_PARAMETERS GIT_CONFIG_COUNT
   unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_INDEX_FILE
   unset GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES
   export GIT_CONFIG_NOSYSTEM=1
   export GIT_OPTIONAL_LOCKS=0
+  cd -- "$dotfiles_work_tree" || return 1
   /usr/bin/git \
-    --git-dir="${DOTFILES_GIT_DIR:-$HOME/.cfg}" \
-    --work-tree="${DOTFILES_WORK_TREE:-$HOME}" \
+    --git-dir="$dotfiles_git_dir" \
+    --work-tree="$dotfiles_work_tree" \
     "$@"
 )
 

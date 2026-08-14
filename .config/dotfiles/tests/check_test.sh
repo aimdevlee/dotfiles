@@ -301,16 +301,24 @@ make_bootstrapped_fixture() {
 }
 
 run_check() {
+  mkdir -p "$TEST_ROOT/run-cwd"
+  run_check_at_cwd "$1" "$TEST_ROOT/run-cwd" "${@:2}"
+}
+
+run_check_at_cwd() {
   local fixture=$1
-  shift
+  local check_cwd=$2
+  shift 2
   local home="$fixture/home"
   local output="$fixture.check-output"
+  local cwd_trace
   local status
 
-  mkdir -p "$TEST_ROOT/run-cwd"
+  cwd_trace=$(mktemp "$TEST_ROOT/check-cwd.XXXXXXXX")
   set +e
   (
-    cd "$TEST_ROOT/run-cwd" || exit 1
+    cd "$check_cwd" || exit 1
+    printf '%s\n' "$(pwd)" > "$cwd_trace"
     env -i \
       HOME="$home" \
       XDG_CONFIG_HOME="$home/.config" \
@@ -328,11 +336,17 @@ run_check() {
       DOTFILES_TEST_ZDOT_MARKER="${DOTFILES_TEST_ZDOT_MARKER:-$TEST_ROOT/no-zdot-marker}" \
       TERM=xterm-256color \
       "$check_script" "$@"
+    status=$?
+    printf '%s\n' "$(pwd)" >> "$cwd_trace"
+    exit "$status"
   ) > "$output" 2>&1
   status=$?
   set -e
   CHECK_STATUS=$status
   CHECK_OUTPUT=$(cat "$output")
+  CHECK_CWD_BEFORE=$(sed -n '1p' "$cwd_trace")
+  CHECK_CWD_AFTER=$(sed -n '2p' "$cwd_trace")
+  rm -- "$cwd_trace"
 }
 
 run_check_with_index_file() {
@@ -494,6 +508,25 @@ assert_contains '0 FAIL' "$CHECK_OUTPUT" 'complete fixture summary'
 assert_not_contains 'Sensitive Fixture Name' "$CHECK_OUTPUT" 'complete identity name redaction'
 assert_not_contains 'sensitive-fixture@example.invalid' "$CHECK_OUTPUT" 'complete identity email redaction'
 assert_file_absent "$complete_fixture/hostile-path-marker" 'complete check invoked hostile PATH bash/git'
+
+nested_check_cwd="$complete_fixture/home/.config/dotfiles"
+run_check_at_cwd "$complete_fixture" "$nested_check_cwd"
+assert_zero "$CHECK_STATUS" 'complete fixture check from nested dotfiles directory'
+assert_contains 'PASS: tracked Zsh files pass syntax checks' "$CHECK_OUTPUT" \
+  'nested check reports tracked Zsh syntax success'
+assert_contains 'PASS: tracked dotfiles Bash scripts pass syntax checks' "$CHECK_OUTPUT" \
+  'nested check reports tracked Bash syntax success'
+assert_eq "$nested_check_cwd" "$CHECK_CWD_BEFORE" 'nested check starts in requested directory'
+assert_eq "$nested_check_cwd" "$CHECK_CWD_AFTER" 'nested check leaves requested directory unchanged'
+
+printf 'if\n' >> "$complete_fixture/home/.config/dotfiles/tests/run"
+run_check_at_cwd "$complete_fixture" "$nested_check_cwd"
+assert_nonzero "$CHECK_STATUS" 'nested check rejects invalid tracked Bash syntax'
+assert_contains 'FAIL: a tracked dotfiles Bash script failed syntax checking' "$CHECK_OUTPUT" \
+  'nested check reports invalid tracked Bash syntax'
+assert_eq "$nested_check_cwd" "$CHECK_CWD_BEFORE" 'nested invalid check starts in requested directory'
+assert_eq "$nested_check_cwd" "$CHECK_CWD_AFTER" 'nested invalid check leaves requested directory unchanged'
+fixture_git "$complete_fixture" checkout -- .config/dotfiles/tests/run
 
 check_hostile_dirty_index="$TEST_ROOT/check-hostile-dirty.index"
 fixture_git_with_index "$complete_fixture" "$check_hostile_dirty_index" read-tree HEAD
