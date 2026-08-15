@@ -6,6 +6,8 @@ unset GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES
 script_dir=$(cd -- "$(/usr/bin/dirname -- "${BASH_SOURCE[0]}")" && pwd)
 # shellcheck source=lib.sh
 source "$script_dir/lib.sh"
+# shellcheck source=local_migration.sh
+source "$script_dir/local_migration.sh"
 
 NVIM_TEMP_ROOT=
 TMUX_TEMP_ROOT=
@@ -247,6 +249,14 @@ check_tracked_status() {
     pass 'index has no staged changes'
   else
     fail_check 'index has staged changes'
+  fi
+}
+
+check_legacy_local_migrations() {
+  if report_legacy_local_migrations "$DOTFILES_WORK_TREE"; then
+    pass 'legacy machine-local configuration paths are absent'
+  else
+    fail_check 'legacy machine-local configuration requires manual migration'
   fi
 }
 
@@ -647,6 +657,7 @@ main() {
   if check_repository; then
     check_remote "$fetch_requested"
     check_tracked_status
+    check_legacy_local_migrations
     check_identity_and_signing
     check_syntax
     check_nvim

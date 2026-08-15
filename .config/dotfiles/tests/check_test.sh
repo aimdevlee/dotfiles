@@ -7,6 +7,7 @@ source "$script_dir/test_helpers.sh"
 work_tree=$(/usr/bin/git -C "$script_dir" rev-parse --show-toplevel)
 check_script="$work_tree/.config/dotfiles/check"
 lib_script="$work_tree/.config/dotfiles/lib.sh"
+local_migration_script="$work_tree/.config/dotfiles/local_migration.sh"
 bootstrap_script="$work_tree/.config/dotfiles/bootstrap"
 
 make_test_root
@@ -255,6 +256,7 @@ make_bootstrapped_fixture() {
   cp "$bootstrap_script" "$source_repo/.config/dotfiles/bootstrap"
   cp "$check_script" "$source_repo/.config/dotfiles/check"
   cp "$lib_script" "$source_repo/.config/dotfiles/lib.sh"
+  cp "$local_migration_script" "$source_repo/.config/dotfiles/local_migration.sh"
   printf '%s\n' \
     '[user]' \
     '  useConfigOnly = true' \
@@ -497,6 +499,37 @@ assert_contains 'FAIL:' "$CHECK_OUTPUT" 'missing identity result'
 assert_not_contains 'Sensitive Fixture Name' "$CHECK_OUTPUT" 'identity name redaction'
 assert_not_contains 'sensitive-fixture@example.invalid' "$CHECK_OUTPUT" 'identity email redaction'
 assert_file_absent "$missing_identity_fixture/hostile-path-marker" 'missing-identity check invoked hostile PATH bash/git'
+
+make_fixture legacy-git-only
+legacy_git_fixture=$FIXTURE
+printf '[user]\n  name = Never Print This\n' > "$legacy_git_fixture/home/.gitconfig.local"
+rm "$legacy_git_fixture/home/.config/git/config.local"
+run_check "$legacy_git_fixture"
+assert_nonzero "$CHECK_STATUS" 'legacy Git config check'
+assert_contains 'Legacy machine-local Git config is no longer loaded' "$CHECK_OUTPUT" 'legacy Git diagnosis'
+assert_contains "/bin/mv -- $legacy_git_fixture/home/.gitconfig.local $legacy_git_fixture/home/.config/git/config.local" \
+  "$CHECK_OUTPUT" 'legacy Git move guidance'
+assert_not_contains 'Never Print This' "$CHECK_OUTPUT" 'legacy Git content redaction'
+
+make_fixture legacy-zsh-only
+legacy_zsh_fixture=$FIXTURE
+printf 'export NEVER_PRINT_THIS=yes\n' > "$legacy_zsh_fixture/home/.zshrc.local"
+run_check "$legacy_zsh_fixture"
+assert_nonzero "$CHECK_STATUS" 'legacy Zsh config check'
+assert_contains 'Legacy machine-local Zsh config is no longer loaded' "$CHECK_OUTPUT" 'legacy Zsh diagnosis'
+assert_contains "/bin/mv -- $legacy_zsh_fixture/home/.zshrc.local $legacy_zsh_fixture/home/.config/zsh/.zshrc.local" \
+  "$CHECK_OUTPUT" 'legacy Zsh move guidance'
+assert_not_contains 'NEVER_PRINT_THIS' "$CHECK_OUTPUT" 'legacy Zsh content redaction'
+
+make_fixture legacy-both-exist
+legacy_both_fixture=$FIXTURE
+printf '# legacy\n' > "$legacy_both_fixture/home/.zshrc.local"
+printf '# active\n' > "$legacy_both_fixture/home/.config/zsh/.zshrc.local"
+run_check "$legacy_both_fixture"
+assert_nonzero "$CHECK_STATUS" 'legacy and active Zsh config check'
+assert_contains 'Compare both files, then remove the legacy path manually' "$CHECK_OUTPUT" 'both-exist guidance'
+assert_not_contains "/bin/mv -- $legacy_both_fixture/home/.zshrc.local" "$CHECK_OUTPUT" \
+  'both-exist overwrite prevention'
 
 make_fixture complete
 complete_fixture=$FIXTURE
