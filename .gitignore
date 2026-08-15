@@ -5,6 +5,9 @@
 .DS_Store
 
 # machine-local shell and Git configuration
+# Legacy locations remain ignored until every existing Mac is migrated.
+/.gitconfig.local
+/.zshrc.local
 /.config/zsh/.zshrc.local
 /.config/git/config.local
 /.Brewfile.local

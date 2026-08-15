@@ -11,6 +11,8 @@ ignored_paths=(
   .cfg/HEAD
   .ssh/config
   .ssh/id_ed25519
+  .gitconfig.local
+  .zshrc.local
   .config/zsh/.zshrc.local
   .config/git/config.local
   .Brewfile.local
