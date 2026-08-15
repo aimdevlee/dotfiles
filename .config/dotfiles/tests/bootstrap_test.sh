@@ -86,7 +86,7 @@ make_remote() {
   fixture_git -C "$source" config user.email 'bootstrap@example.invalid'
   fixture_git -C "$source" config commit.gpgSign false
   printf 'tracked payload\n' > "$source/tracked.txt"
-  printf '#!/bin/bash\nprintf "fixture check from %%s\\n" "$0"\n' > "$source/.config/dotfiles/check"
+  printf '#!/bin/bash\nprintf "fixture check from %%s\\n" "$0"\nprintf "fixture check PATH=%%s\\n" "$PATH"\n' > "$source/.config/dotfiles/check"
   /bin/chmod +x "$source/.config/dotfiles/check"
   printf '[user]\n  name = Example Only\n' > "$source/.config/dotfiles/templates/gitconfig.local.example"
   printf 'example@example.invalid ssh-ed25519 INVALID\n' > "$source/.config/dotfiles/templates/allowed_signers.local.example"
@@ -393,6 +393,8 @@ run_bootstrap "$identity_home" "$REMOTE" --yes
 assert_eq 0 "$BOOTSTRAP_STATUS" 'bootstrap with local identity succeeds'
 assert_contains "fixture check from $identity_home/.config/dotfiles/check" "$BOOTSTRAP_OUTPUT" \
   'check runs from the checked-out fixture, not the real home'
+assert_contains 'fixture check PATH=/opt/homebrew/bin:/usr/bin:/bin' "$BOOTSTRAP_OUTPUT" \
+  'bootstrap check sees the Apple Silicon Homebrew tool path'
 assert_absent "$identity_home/.config/git/allowed_signers.local"
 assert_absent "$identity_home/.config/zsh/.zshrc.local"
 assert_absent "$identity_home/.config/tmux-sessionizer/tmux-sessionizer.local.conf"

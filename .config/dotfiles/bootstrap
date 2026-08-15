@@ -630,7 +630,8 @@ if [[ $local_template_hints -eq 1 ]]; then
   printf 'Review and edit the examples before running %q.\n' "$work_tree_canonical/.config/dotfiles/check"
 fi
 if [[ -e $work_tree_canonical/.config/git/config.local && -x $work_tree_canonical/.config/dotfiles/check ]]; then
-  DOTFILES_GIT_DIR=$repo_dir DOTFILES_WORK_TREE=$work_tree_canonical \
+  PATH=/opt/homebrew/bin:/usr/bin:/bin \
+    DOTFILES_GIT_DIR=$repo_dir DOTFILES_WORK_TREE=$work_tree_canonical \
     "$work_tree_canonical/.config/dotfiles/check"
 elif [[ -e $work_tree_canonical/.config/git/config.local ]]; then
   die 'local identity exists but checked-out dotfiles check is unavailable'
