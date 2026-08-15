@@ -50,6 +50,14 @@ export GIT_CONFIG_GLOBAL=/dev/null
 export GIT_OPTIONAL_LOCKS=0
 export LC_ALL=C
 
+script_dir=$(cd -- "$(/usr/bin/dirname -- "${BASH_SOURCE[0]}")" && pwd) ||
+  die 'cannot resolve bootstrap script directory'
+migration_library=$script_dir/local_migration.sh
+[[ -f $migration_library && ! -L $migration_library ]] ||
+  die 'local migration library is unavailable or unsafe'
+# shellcheck source=local_migration.sh
+source "$migration_library"
+
 git_cmd() {
   /usr/bin/git -c core.hooksPath=/dev/null "$@"
 }
@@ -425,12 +433,15 @@ if [[ ${#conflicts[@]} -gt 0 ]]; then
   done
 fi
 
+legacy_migration_status=0
+report_legacy_local_migrations "$work_tree_canonical" || legacy_migration_status=$?
+
 if [[ $mode == dry-run ]]; then
   if [[ ${#conflicts[@]} -eq 0 ]]; then
     printf 'No conflicts detected.\n'
   fi
   printf 'Dry run complete; no changes made.\n'
-  exit 0
+  exit "$legacy_migration_status"
 fi
 
 if [[ ${#conflicts[@]} -gt 0 && $mode == normal ]]; then
@@ -551,6 +562,9 @@ if ! git_cmd --git-dir="$repo_dir" --work-tree="$work_tree_canonical" checkout -
   print_recovery
   die 'checkout failed; the backup was intentionally retained'
 fi
+
+[[ $legacy_migration_status -eq 0 ]] ||
+  die 'legacy machine-local configuration requires manual migration'
 
 current_untracked=$(git_cmd --git-dir="$repo_dir" config --local --get status.showUntrackedFiles 2>/dev/null || true)
 if [[ $current_untracked != no ]]; then

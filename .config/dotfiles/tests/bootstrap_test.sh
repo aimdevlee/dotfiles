@@ -215,6 +215,43 @@ assert_contains "/bin/cp -- $clean_home/.config/dotfiles/templates/zshrc.local.e
 assert_contains 'tmux-sessionizer.local.conf' "$BOOTSTRAP_OUTPUT" 'tmux-sessionizer local config copy instruction'
 [[ $BOOTSTRAP_OUTPUT != *brew* ]] || fail 'bootstrap must not install programs'
 
+legacy_home="$TEST_ROOT/legacy-home"
+/bin/mkdir "$legacy_home"
+printf '[user]\n  name = Legacy Fixture\n' > "$legacy_home/.gitconfig.local"
+legacy_before=$(/usr/bin/shasum -a 256 "$legacy_home/.gitconfig.local")
+run_bootstrap "$legacy_home" "$REMOTE" --yes
+[[ $BOOTSTRAP_STATUS -ne 0 ]] || fail 'legacy-only bootstrap must require migration'
+assert_contains "/bin/mv -- $legacy_home/.gitconfig.local $legacy_home/.config/git/config.local" \
+  "$BOOTSTRAP_OUTPUT" 'legacy bootstrap move guidance'
+assert_eq "$legacy_before" "$(/usr/bin/shasum -a 256 "$legacy_home/.gitconfig.local")" \
+  'legacy bootstrap preserves local bytes'
+assert_absent "$legacy_home/.config/git/config.local"
+
+legacy_both_home="$TEST_ROOT/legacy-both-home"
+/bin/mkdir -p "$legacy_both_home/.config/git"
+printf 'legacy\n' > "$legacy_both_home/.gitconfig.local"
+printf 'active\n' > "$legacy_both_home/.config/git/config.local"
+run_bootstrap "$legacy_both_home" "$REMOTE" --yes
+[[ $BOOTSTRAP_STATUS -ne 0 ]] || fail 'both-exist bootstrap must require manual comparison'
+assert_contains 'Compare both files, then remove the legacy path manually' "$BOOTSTRAP_OUTPUT" \
+  'bootstrap both-exist guidance'
+assert_not_contains "/bin/mv -- $legacy_both_home/.gitconfig.local" "$BOOTSTRAP_OUTPUT" \
+  'bootstrap overwrite prevention'
+assert_eq legacy "$(<"$legacy_both_home/.gitconfig.local")" 'bootstrap preserves legacy value'
+assert_eq active "$(<"$legacy_both_home/.config/git/config.local")" 'bootstrap preserves active value'
+
+legacy_dry_home="$TEST_ROOT/legacy-dry-home"
+/bin/mkdir "$legacy_dry_home"
+printf 'legacy dry run\n' > "$legacy_dry_home/.zshrc.local"
+legacy_dry_before=$(snapshot_tree "$legacy_dry_home")
+run_bootstrap "$legacy_dry_home" "$REMOTE" --dry-run
+[[ $BOOTSTRAP_STATUS -ne 0 ]] || fail 'legacy dry-run must require migration'
+assert_contains "/bin/mv -- $legacy_dry_home/.zshrc.local $legacy_dry_home/.config/zsh/.zshrc.local" \
+  "$BOOTSTRAP_OUTPUT" 'legacy dry-run move guidance'
+assert_contains 'Dry run complete; no changes made.' "$BOOTSTRAP_OUTPUT" 'legacy dry-run completion'
+assert_eq "$legacy_dry_before" "$(snapshot_tree "$legacy_dry_home")" 'legacy dry-run changes nothing'
+assert_absent "$legacy_dry_home/.cfg"
+
 fresh_hostile_home="$TEST_ROOT/fresh-hostile-index-home"
 fresh_external_index="$TEST_ROOT/fresh-hostile.index"
 /bin/mkdir "$fresh_hostile_home"
