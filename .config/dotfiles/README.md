@@ -46,6 +46,30 @@ fi
 
 Backups are intentionally retained; inspect them before any manual cleanup.
 
+## Migrating legacy local files
+
+Older installations may still have machine-local Git or Zsh settings at the legacy HOME paths. The active paths are under `~/.config`. Run these guarded commands once after reviewing both path pairs. The safety rule is that bootstrap and check never move legacy local files automatically.
+
+```sh
+if [[ -e "$HOME/.gitconfig.local" || -L "$HOME/.gitconfig.local" ]]; then
+  if [[ -e "$HOME/.config/git/config.local" || -L "$HOME/.config/git/config.local" ]]; then
+    printf '%s\n' 'STOP: both legacy and XDG paths exist; compare them before removing the legacy file.'
+  else
+    /bin/mv -- "$HOME/.gitconfig.local" "$HOME/.config/git/config.local"
+  fi
+fi
+
+if [[ -e "$HOME/.zshrc.local" || -L "$HOME/.zshrc.local" ]]; then
+  if [[ -e "$HOME/.config/zsh/.zshrc.local" || -L "$HOME/.config/zsh/.zshrc.local" ]]; then
+    printf '%s\n' 'STOP: both legacy and XDG paths exist; compare them before removing the legacy file.'
+  else
+    /bin/mv -- "$HOME/.zshrc.local" "$HOME/.config/zsh/.zshrc.local"
+  fi
+fi
+```
+
+When both paths exist, compare their contents and merge any needed values into the active XDG file. Remove the legacy file only after confirming the active configuration is complete.
+
 ## Local files and templates
 
 These files are machine-local: `~/.config/git/config.local`, `~/.config/git/allowed_signers.local`, `~/.config/zsh/.zshrc.local`, and `~/.config/tmux-sessionizer/tmux-sessionizer.local.conf`. Create them only from the tracked templates. Every command below preserves an existing file and prints a skip instead of copying over it:

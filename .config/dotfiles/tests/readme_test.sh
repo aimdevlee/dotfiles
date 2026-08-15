@@ -75,6 +75,7 @@ for heading in \
   '## Scope and prerequisites' \
   '## First placement' \
   '## Conflicts and recovery' \
+  '## Migrating legacy local files' \
   '## Local files and templates' \
   '## SSH signing' \
   '## Daily workflow' \
@@ -89,6 +90,10 @@ for command in \
   'reviewed_head=$(git -C "$bootstrap_source" rev-parse HEAD)' \
   'DOTFILES_SOURCE="$bootstrap_source/.git" DOTFILES_SOURCE_REF="$reviewed_head" DOTFILES_REMOTE="git@github.com:aimdevlee/dotfiles.git" "$bootstrap_source/.config/dotfiles/bootstrap" --dry-run' \
   'DOTFILES_SOURCE="$bootstrap_source/.git" DOTFILES_SOURCE_REF="$reviewed_head" DOTFILES_REMOTE="git@github.com:aimdevlee/dotfiles.git" "$bootstrap_source/.config/dotfiles/bootstrap"' \
+  'if [[ -e "$HOME/.gitconfig.local" || -L "$HOME/.gitconfig.local" ]]; then' \
+  '    /bin/mv -- "$HOME/.gitconfig.local" "$HOME/.config/git/config.local"' \
+  'if [[ -e "$HOME/.zshrc.local" || -L "$HOME/.zshrc.local" ]]; then' \
+  '    /bin/mv -- "$HOME/.zshrc.local" "$HOME/.config/zsh/.zshrc.local"' \
   'if [[ ! -e "$HOME/.config/git/config.local" && ! -L "$HOME/.config/git/config.local" ]]; then' \
   'if [[ ! -e "$HOME/.config/git/allowed_signers.local" && ! -L "$HOME/.config/git/allowed_signers.local" ]]; then' \
   'if [[ ! -e "$HOME/.config/zsh/.zshrc.local" && ! -L "$HOME/.config/zsh/.zshrc.local" ]]; then' \
@@ -129,6 +134,8 @@ for guidance in \
   'checkout failure intentionally retains the backup' \
   'Use the exact relative paths and backup path printed by bootstrap.' \
   'STOP: destination exists; compare it or move it separately before recovery.' \
+  'STOP: both legacy and XDG paths exist; compare them before removing the legacy file.' \
+  'bootstrap and check never move legacy local files automatically' \
   'Edit every placeholder before use.' \
   'Never commit local values, private material, or company material.' \
   'No `includeIf` or profile switching is used.' \
