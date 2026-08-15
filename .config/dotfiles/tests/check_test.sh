@@ -83,9 +83,10 @@ make_optional_tool_wrappers() {
     '#!/bin/bash' \
     'wrapper_dir=$(cd -P -- "${0%/*}" && pwd)' \
     'log=${wrapper_dir%/bin}/optional-tools.log' \
-    '[[ -L $XDG_CONFIG_HOME/nvim ]] || exit 91' \
+    '[[ -d $XDG_CONFIG_HOME/nvim && ! -L $XDG_CONFIG_HOME/nvim ]] || exit 91' \
     '[[ -f $XDG_DATA_HOME/nvim/lazy/lazy.nvim/lua/lazy/init.lua ]] || exit 93' \
     'printf "nvim|%s|HOME=%s\n" "$*" "${HOME:-}" >> "$log"' \
+    'printf "\n-- fake nvim config write\n" >> "$XDG_CONFIG_HOME/nvim/init.lua"' \
     'if /usr/bin/grep -q "INVALID_NVIM_FIXTURE" "$XDG_CONFIG_HOME/nvim/init.lua"; then' \
     '  case " $* " in *"vim.v.errmsg"*"cquit"*) exit 1 ;; *) exit 0 ;; esac' \
     'fi' \
@@ -786,6 +787,7 @@ optional_fixture=$FIXTURE
 make_optional_tool_wrappers "$optional_fixture"
 printf 'brew "fixture"\n' > "$optional_fixture/home/.Brewfile"
 printf 'brew "local-fixture"\n' > "$optional_fixture/home/.Brewfile.local"
+optional_nvim_before=$(/usr/bin/shasum -a 256 "$optional_fixture/home/.config/nvim/init.lua")
 malicious_zdotdir="$TEST_ROOT/malicious-zdotdir"
 malicious_zdot_marker="$TEST_ROOT/malicious-zdot-ran"
 mkdir -p "$malicious_zdotdir"
@@ -793,6 +795,8 @@ printf '%s\n' ': > "${DOTFILES_TEST_ZDOT_MARKER:?}"' > "$malicious_zdotdir/.zshe
 DOTFILES_TEST_SHELL=/bin/zsh DOTFILES_TEST_ZDOTDIR="$malicious_zdotdir" \
   DOTFILES_TEST_ZDOT_MARKER="$malicious_zdot_marker" run_check "$optional_fixture"
 assert_zero "$CHECK_STATUS" 'optional tool success and warning checks'
+assert_eq "$optional_nvim_before" "$(/usr/bin/shasum -a 256 "$optional_fixture/home/.config/nvim/init.lua")" \
+  'nvim check preserves tracked configuration bytes'
 assert_file_absent "$malicious_zdot_marker" 'tmux startup executed inherited malicious ZDOTDIR'
 optional_log=$(cat "$optional_fixture/optional-tools.log")
 assert_contains 'nvim|-i NONE --headless' "$optional_log" 'nvim isolated invocation'

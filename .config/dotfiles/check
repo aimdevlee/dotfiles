@@ -454,7 +454,7 @@ check_nvim() {
   }
   /bin/mkdir -p "$NVIM_TEMP_ROOT/home" "$NVIM_TEMP_ROOT/config" "$NVIM_TEMP_ROOT/cache" \
     "$NVIM_TEMP_ROOT/data" "$NVIM_TEMP_ROOT/state"
-  /bin/ln -s "$config_dir" "$NVIM_TEMP_ROOT/config/nvim"
+  /bin/cp -R -- "$config_dir" "$NVIM_TEMP_ROOT/config/nvim"
   /bin/mkdir -p "$NVIM_TEMP_ROOT/data/nvim/lazy/lazy.nvim/lua/lazy"
   printf '%s\n' \
     'local M = {}' \
