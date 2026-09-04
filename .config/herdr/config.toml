@@ -75,7 +75,7 @@ channel = "preview"
 # workspace_picker = "prefix+w"
 # goto = "prefix+g"
 # new_workspace = "prefix+shift+n"
-# new_worktree = "prefix+shift+g"
+new_worktree = "prefix+ctrl+n"
 # Open an existing worktree as a workspace. Creating them stays with the
 # dev-start skill, which also brings up the baton server.
 open_worktree = "prefix+ctrl+o"
@@ -147,7 +147,7 @@ height = "90%"
 # ~/Developer). The built-in new_workspace on prefix+shift+N still opens in the
 # current directory; this chooses the location up front instead.
 [[keys.command]]
-key = "prefix+ctrl+n"
+key = "prefix+shift+n"
 type = "popup"
 command = "sh ${XDG_CONFIG_HOME:-$HOME/.config}/herdr/space-picker.sh"
 description = "new space in a picked directory"
@@ -198,8 +198,8 @@ description = "navigate right"
 # workspaces = "" # e.g. "ctrl+shift" makes ctrl+shift+1..9 switch workspaces directly
 # agents = ""     # e.g. "alt" makes alt+1..9 focus agent rows directly
 
-# [worktrees]
-# directory = "~/.herdr/worktrees"
+[worktrees]
+directory = "~/.worktrees"
 
 [ui]
 # Sidebar width (auto-scaled based on workspace names, this sets the default)
