@@ -25,8 +25,19 @@ name = "catppuccin"
 # accent = "#f5c2e7"
 # red = "#ff6188"
 # green = "#a6e3a1"
+# sidebar_bg = "#181825"
+# active_row_bg = "#1e1e2e"
+# selection_bg = "#313244"
 
-auto_switch = false
+# Layer appearance-specific overrides on top when auto_switch is enabled.
+# [theme.custom.light]
+# panel_bg = "#eff1f5"
+# text = "#4c4f69"
+#
+# [theme.custom.dark]
+# panel_bg = "#1e1e2e"
+# text = "#cdd6f4"
+
 [terminal]
 # Executable used for new interactive panes.
 # Empty means $SHELL, then /bin/sh.
@@ -40,6 +51,10 @@ auto_switch = false
 # Use "follow" to inherit the source pane/workspace, "home" for $HOME,
 # "current" for Herdr's process directory, or a fixed path such as "~/Projects".
 # new_cwd = "follow"
+
+# Render pane images in Kitty graphics-compatible outer terminals.
+# Moved here from [experimental]; this key wins when both are set.
+# kitty_graphics = true
 
 [update]
 # Update channel used by background version checks and `herdr update`.
@@ -86,20 +101,23 @@ open_worktree = "prefix+ctrl+o"
 # next_workspace = ""     # optional, unset by default
 # Walk the agent_panel_sort = "priority" list, i.e. in needs-attention order.
 # Brackets are only accepted literally; bracketleft/bracketright are invalid.
-previous_agent = "prefix+["
-next_agent = "prefix+]"
+# previous_agent = "prefix+["
+# next_agent = "prefix+]"
 focus_agent = "ctrl+alt+1..9"   # focus agents 1-9 directly ("opt" is not a modifier, "alt" is)
 # remote_image_paste = "ctrl+v" # only active in herdr --remote; empty disables raw-key image paste
 # new_tab = "prefix+c"
 # rename_tab = "prefix+shift+t"
 # previous_tab = "prefix+p"
 # next_tab = "prefix+n"
+# move_tab_previous = ""   # optional, e.g. "alt+shift+left" moves the tab toward the front
+# move_tab_next = ""       # optional, e.g. "alt+shift+right" moves the tab toward the back
 # tmux: bind-key -n C-1..C-9 select-window -t 1..9 (no prefix)
 switch_tab = "ctrl+1..9"
 switch_workspace = "ctrl+cmd+1..9"   # spaces 1-9 directly
 # close_tab = "prefix+shift+x"
 # rename_pane = "prefix+shift+p"
 # edit_scrollback = "prefix+e"
+# clear_pane = ""                  # unbound; e.g. "prefix+ctrl+k"
 # Superseded by the herdr-nvim-nav plugin action below, which forwards the chord to
 # Neovim when it owns the pane. These built-ins are instant (no process at all)
 # but unconditional, so Neovim would never see ctrl+hjkl.
@@ -118,6 +136,10 @@ split_vertical = "prefix+|"
 # close_pane = "prefix+x"
 # zoom = "prefix+z"       # legacy alias: fullscreen
 # resize_mode = "prefix+r"
+# resize_pane_left = ""   # optional, e.g. "ctrl+shift+alt+left" resizes without entering resize mode
+# resize_pane_down = ""   # optional, e.g. "ctrl+shift+alt+down"
+# resize_pane_up = ""     # optional, e.g. "ctrl+shift+alt+up"
+# resize_pane_right = ""  # optional, e.g. "ctrl+shift+alt+right"
 # toggle_sidebar = "prefix+b"
 
 # Navigate-mode movement. These local shortcuts win while navigate mode is open.
@@ -136,16 +158,17 @@ split_vertical = "prefix+|"
 # Popup width and height accept terminal cells or percentages such as "80%".
 # On Windows, command strings run through cmd.exe /d /c.
 # tmux: bind-key C-g display-popup -E -w 90% -h 90% "lazygit"
-[[keys.command]]
-key = "prefix+ctrl+g"
-type = "popup"
-command = "lazygit"
-width = "90%"
-height = "90%"
+# [[keys.command]]
+# key = "prefix+ctrl+g"
+# type = "popup"
+# command = "lazygit"
+# width = "90%"
+# height = "90%"
 
 # Create a workspace in a directory picked with fzf (zoxide frecency +
-# ~/Developer). The built-in new_workspace on prefix+shift+N still opens in the
-# current directory; this chooses the location up front instead.
+# ~/Developer). It shares prefix+shift+n with the built-in new_workspace and
+# wins, so the built-in (opens in the current directory) is unreachable unless
+# rebound.
 [[keys.command]]
 key = "prefix+shift+n"
 type = "popup"
@@ -161,6 +184,12 @@ command = "exec \"${SHELL:-sh}\""
 description = "open scratch terminal"
 width = "80%"
 height = "80%"
+
+[[keys.command]]
+key = "alt+r"
+type = "plugin_action"
+command = "persiyanov.reviewr.toggle"
+description = "toggle reviewr pane"
 
 # Installed from GitHub with `herdr plugin install aimdevlee/herdr-nvim-nav`.
 # herdr does not build the C action, so compile it once in the install dir:
@@ -211,7 +240,7 @@ sidebar_width = 34
 # sidebar_min_width = 18
 
 # Maximum sidebar width when expanded (columns)
-# The 36 above is the default, not a ceiling -- 60 passes `herdr config check`.
+# The default is 36, but that is not a ceiling -- 60 passes `herdr config check`.
 sidebar_max_width = 60
 
 # Start with the sidebar collapsed. Changes take effect on the next launch.
@@ -229,8 +258,9 @@ sidebar_max_width = 60
 # Pane apps like lazygit and btop can still receive mouse when they request it.
 # mouse_capture = true
 
-# Automatically copy text selected by mouse drag.
-# Set false to keep drag selection visible without copying; double-click still copies a word.
+# Automatically copy text selected with the mouse.
+# Set false to retain drag or double-click word selection until Ctrl+C,
+# or Cmd+C when the host forwards it, copies and clears it.
 # copy_on_select = true
 
 # Host cursor policy: "auto", "native", or "drawn".
@@ -261,7 +291,16 @@ prompt_new_tab_name = false
 # prompt_new_workspace_name = false
 
 # Draw borders around split panes.
-# pane_borders = true
+# "auto" draws them only for split panes, "always" also frames a lone pane
+# (only while pane_outer_borders is enabled), "off" disables them.
+# Legacy booleans still parse: true = "auto", false = "off".
+# pane_borders = "auto"
+# Draw borders along the outside edge of the pane area.
+# Disable for tmux-style internal splitters without an outside frame.
+# pane_outer_borders = true
+# Draw interactive scrollbars beside terminal panes.
+# Set false to reclaim the scrollbar column and keep it out of terminal-native selections.
+# pane_scrollbars = true
 
 # Keep split panes visually separated instead of sharing divider borders.
 # pane_gaps = true
@@ -274,6 +313,18 @@ show_agent_labels_on_pane_borders = true
 # Tab labels are mostly generated numbers, so a single-tab row carries no
 # information. Reclaim the line.
 hide_tab_bar_when_single_tab = true
+# Desktop tab row placement: "top" or "bottom".
+# tab_bar_position = "top"
+# Ordered status entries at the right edge of the desktop tab bar.
+# Supported types: zoom, hostname, datetime, text, and command.
+# Hostname, datetime, and command entries resolve on the Herdr server.
+# tab_bar_right = []
+# tab_bar_right_separator = " "
+# Title Herdr writes to the terminal it runs in, which is what window managers
+# show in title, tab, and group bars. Tokens are {hostname}, {workspace}, {tab},
+# {pane}, and {terminal_title}; {{ and }} are literal braces.
+# Set to "" to leave the outer terminal title alone.
+# window_title = "{hostname}: {workspace}"
 
 # Agent panel ordering: "spaces" (grouped by space) or "priority" (attention queue).
 # "workspaces" is accepted as an alias for "spaces".
@@ -281,8 +332,14 @@ hide_tab_bar_when_single_tab = true
 # Trade-off: the grouping by space goes away.
 agent_panel_sort = "priority"
 
-# Expanded agent rows. Built-ins are state_icon, state_text, workspace, tab, pane, agent,
-# terminal_title, and terminal_title_stripped.
+# Agent status indicators: "dots" preserves the compact color marks; "symbols" uses
+# distinct static glyphs for blocked, working, done, idle, and unknown states.
+# With seven-odd agents in the priority list, color alone makes blocked and
+# done hard to tell apart at a glance.
+status_indicators = "symbols"
+
+# Expanded agent rows. Built-ins are state_icon, state_text, machine, workspace, tab,
+# pane, agent, terminal_title, and terminal_title_stripped.
 # Custom values reported through pane metadata use a $name token.
 # A token occurrence may be styled with { token = "workspace", fg = "#89b4fa", bold = true, dim = false }.
 # Omitted style fields preserve the contextual default.
@@ -311,8 +368,10 @@ accent = "#2ac3de"
 # sidebar rows. This replaces `rows` for that agent rather than adding to it.
 # It sits here rather than at the commented example above because every bare
 # [ui] key that follows a subtable would be parsed into that subtable instead.
+# Drop tab and agent: auto-title names each tab after the same task as
+# terminal_title_stripped, and every agent here is claude anyway.
 [ui.sidebar.agents.rows_by_agent]
-claude = [["state_icon", "workspace", "tab"], ["terminal_title_stripped"], ["agent"]]
+claude = [["state_icon", "workspace"], ["terminal_title_stripped"]]
 
 # Herdr has no separator or border option for the sidebar list; row_gap is the
 # only spacing control. Tried 1, kept 0 -- a blank line per space costs more
@@ -361,11 +420,18 @@ delivery = "herdr"
 # [ui.sound.agents]
 # droid = "off"
 
-enabled = true
 [session]
 # Resume supported AI-agent panes into their native conversation sessions after
 # a Herdr server restart. Requires official integrations that report session refs.
 # resume_agents_on_restore = true
+# Milliseconds between automatic agent restores; 0 starts them without spacing.
+# startup_per_agent_delay_ms = 100
+
+# Size of the virtual terminal used when no client is attached.
+# Attached clients always use their own terminal size.
+# [server]
+# headless_cols = 120
+# headless_rows = 40
 
 [remote]
 # Whether herdr manages the ssh config used for `herdr --remote`.
@@ -381,9 +447,6 @@ enabled = true
 [experimental]
 # Allow launching herdr from inside a herdr-managed pane.
 # allow_nested = false
-# Experimental local Kitty graphics rendering for attached clients.
-# Requires a Kitty graphics-compatible outer terminal.
-# kitty_graphics = false
 # Save recent pane screen history across full server restarts.
 # tmux: @resurrect-capture-pane-contents 'on' -- keep pane screens across a
 # full server restart.
@@ -402,7 +465,8 @@ switch_ascii_input_source_in_prefix = true
 # matches one of these names. Empty means apply to any focused pane.
 # If the list contains no valid names, the reveal does not apply.
 # Accepted: pi, claude, codex, gemini, cursor, devin, cline, opencode,
-# copilot, kimi, kiro, droid, amp, grok, hermes, kilo, qodercli, qoder.
+# copilot, kimi, kiro, droid, amp, grok, hermes, kilo, qodercli, qoder, qwen,
+# qwen-code, letta, letta-code, maki.
 # cjk_ime_agents = []
 # Cursor shape rendered when reveal_hidden_cursor_for_cjk_ime is true.
 # Values: block, steady_block (default), underline, steady_underline, bar, steady_bar.

@@ -1,10 +1,10 @@
 #!/bin/sh
 # Pick a directory with fzf and open it as a new herdr workspace.
 #
-# Companion to worktree-picker.sh (prefix+C-f), which only lists worktrees of
-# the repo you are already in. This one covers any project: zoxide's frecency
-# list first, then every top-level directory under ~/Developer so freshly
-# cloned repos show up before they have been visited.
+# Companion to the built-in open_worktree (prefix+C-o), which only lists
+# worktrees of the repo you are already in. This one covers any project:
+# zoxide's frecency list first, then every top-level directory under
+# ~/Developer so freshly cloned repos show up before they have been visited.
 
 set -eu
 
